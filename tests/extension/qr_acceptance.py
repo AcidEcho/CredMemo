@@ -50,9 +50,11 @@ def run():
             assert result['ok'], result.get('error')
             return result['data']
 
-        def create(mode, title):
+        expect(page.locator('.filter-tabs')).to_have_count(0)
+
+        def create(title):
             page.locator('.heading-actions [data-action=new]').click()
-            page.locator(f'[name=entry-mode][value={mode}]').check()
+            expect(page.locator('#entry-form input[type=radio]')).to_have_count(0)
             page.locator('#entry-title').fill(title)
 
         def login():
@@ -63,14 +65,14 @@ def run():
             page.locator('button[form=entry-form]').click()
             expect(page.locator('#modal-root')).to_be_empty()
 
-        create('login', '仅账号密码')
-        expect(page.locator('[data-entry-section=totp]')).to_be_hidden()
+        create('仅账号密码')
+        expect(page.locator('.token-item [data-field=secret]')).to_be_visible()
         login(); save()
-        create('totp', '手动密钥')
-        expect(page.locator('[data-entry-section=login]')).to_be_hidden()
+        create('手动密钥')
+        expect(page.locator('.login-item [data-field=username]')).to_be_visible()
         page.locator('.token-item [data-field=secret]').fill(PUBLIC_SECRET)
         save()
-        create('both', '账号与对应2FA')
+        create('账号与对应2FA')
         login()
         page.locator('.token-item [data-field=secret]').fill(PUBLIC_SECRET)
         save()
@@ -80,26 +82,32 @@ def run():
         page.reload()
         expect(page.locator('.entry-card')).to_have_count(3)
         assert len(request('list')['entries']) == 3
-        print('PASS: UI saves account-only, 2FA-only and combined entries; reopening preserves all shapes', flush=True)
+        print('PASS: one form saves account-only, 2FA-only and combined entries without category or mode selection', flush=True)
 
-        create('both', '缺少账号')
-        page.locator('.token-item [data-field=secret]').fill(PUBLIC_SECRET)
+        create('没有填写凭证')
         page.locator('button[form=entry-form]').click()
-        expect(page.locator('#form-error')).to_contain_text('请填写账号密码和 2FA')
+        expect(page.locator('#form-error')).to_contain_text('至少添加')
+        login()
+        page.locator('.token-item [data-field=secret]').fill('invalid 2FA fixture')
+        page.locator('button[form=entry-form]').click()
+        expect(page.locator('#form-error')).to_contain_text('2FA 密钥或参数无效')
+        assert len(request('list')['entries']) == 3
         page.locator('#modal-root [data-action=close-modal]').first.click()
         combined = next(entry for entry in entries if entry['title'] == '账号与对应2FA')
         page.locator(f'[data-entry="{combined["id"]}"] [data-action=detail]').first.click()
         page.locator('#drawer-root [data-action=edit]').click()
-        page.locator('[name=entry-mode][value=totp]').check()
-        expect(page.locator('#mode-warning')).to_be_visible()
-        page.locator('[name=entry-mode][value=both]').check()
-        expect(page.locator('#mode-warning')).to_be_hidden()
         expect(page.locator('.login-item [data-field=password]')).to_have_value(password)
-        page.locator('#modal-root [data-action=close-modal]').first.click()
-        print('PASS: combined-mode validation and reversible content selection', flush=True)
+        expect(page.locator('.token-item [data-field=secret]')).to_have_value(PUBLIC_SECRET)
+        page.locator('[data-action=add-login]').click()
+        page.locator('[data-action=add-totp]').click()
+        save()
+        preserved = request('get', {'id': combined['id']})
+        assert len(preserved['logins']) == len(preserved['totps']) == 1
+        assert preserved['logins'][0]['password'] == password and preserved['totps'][0]['secret'] == PUBLIC_SECRET
+        print('PASS: empty/invalid inputs preserve saved data; editing preserves both kinds and skips blank extra rows', flush=True)
 
         ctx.set_offline(True)
-        create('totp', '')
+        create('')
         payload = {'name': 'qr-fixture.png', 'mimeType': 'image/png', 'buffer': base64.b64decode(images['valid'].split(',')[1])}
         page.locator('#qr-image').set_input_files(payload)
         expect(page.locator('#qr-status')).to_have_text('已识别 2FA，请检查后保存')
@@ -119,7 +127,7 @@ def run():
         expect(page.locator('.entry-card')).to_have_count(4)
         print('PASS: PNG QR recognized offline; label, secret, digits, period and algorithm survive save', flush=True)
 
-        create('totp', '错误图片验收')
+        create('错误图片验收')
         for image, message in [('blank', '未找到二维码'), ('ordinary', '不是 2FA')]:
             page.locator('#qr-image').set_input_files({'name': image + '.png', 'mimeType': 'image/png', 'buffer': base64.b64decode(images[image].split(',')[1])})
             expect(page.locator('#form-error')).to_contain_text(message)
@@ -131,12 +139,12 @@ def run():
         print('PASS: blank, unrelated and damaged QR images show errors without changing saved data', flush=True)
 
         # 暂缓实际图片解码，验证关闭表单后旧异步结果不会进入新表单。
-        create('totp', '将关闭的表单')
+        create('将关闭的表单')
         page.evaluate('''()=>{const original=window.createImageBitmap;window.createImageBitmap=async(...args)=>{await new Promise(resolve=>window.resumeQr=resolve);try{return await original(...args)}finally{window.createImageBitmap=original;window.qrResumed=true}}}''')
         page.locator('#qr-image').set_input_files(payload)
         expect(page.locator('#qr-status')).to_have_text('正在识别…')
         page.locator('#modal-root [data-action=close-modal]').first.click()
-        create('totp', '新表单')
+        create('新表单')
         page.evaluate('window.resumeQr()')
         page.wait_for_function('()=>window.qrResumed===true')
         expect(page.locator('.token-item [data-field=secret]')).to_have_value('')

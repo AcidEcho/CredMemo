@@ -11,7 +11,7 @@ import { readQrImage } from './qr.ts';
   const escape = value => String(value ?? '').replace(/[&<>"']/g, char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const icon = name => `<svg aria-hidden="true"><use href="/static/icons.svg#${name}"/></svg>`;
   const iconButton = (name, action, label, attrs='', className='') => `<button type="button" class="icon-button ${className}" data-action="${action}" aria-label="${escape(t(label))}" title="${escape(t(label))}" ${attrs}>${icon(name)}</button>`;
-  const state = {unlocked:false,entries:[],codes:{},offset:0,filter:'all',type:'all',authMode:'login',generation:0,lastActive:Date.now(),codePending:false,codeRetryAt:0,codeError:false};
+  const state = {unlocked:false,entries:[],codes:{},offset:0,filter:'all',authMode:'login',generation:0,lastActive:Date.now(),codePending:false,codeRetryAt:0,codeError:false};
   let theme = localStorage.getItem('credmemo-theme') || 'system';
   let selected = null;
   let modalOpener = null;
@@ -43,7 +43,7 @@ import { readQrImage } from './qr.ts';
   function showAuth() {
     state.generation++;state.unlocked=false;state.entries=[];state.codes={};state.codePending=false;state.codeRetryAt=0;state.codeError=false;selected=null;transferFile=null;
     closeModal();closeDrawer();$('#entries').replaceChildren();$('#auth-password').value='';$('#confirm-password').value='';
-    state.filter='all';state.type='all';$('#search').value='';render();
+    state.filter='all';$('#search').value='';render();
     $('#app-screen').hidden=true;$('#auth-screen').hidden=false;$('#loading-screen').hidden=true;
     authMode(initialized?'unlock':'setup');
   }
@@ -65,7 +65,7 @@ import { readQrImage } from './qr.ts';
     $('#auth-password').value='';$('#confirm-password').value='';
     target=await request('target');
     const scanned=await request('qr-result');
-    if(scanned){state.filter='all';state.type='totp';$('#search').value='';toast(t('qrSaved'));}
+    if(scanned){state.filter='all';$('#search').value='';toast(t('qrSaved'));}
     await loadEntries();
   }
   function matchesSite(entry){try{return !!target&&new URL(entry.url).origin===target.origin;}catch{return false;}}
@@ -91,11 +91,10 @@ import { readQrImage } from './qr.ts';
     const entries=state.entries;
     const favorite=$('[data-action="filter"][data-filter="favorite"]');
     favorite.classList.toggle('is-favorite',state.filter==='favorite');favorite.setAttribute('aria-pressed',String(state.filter==='favorite'));
-    $$('.filter-tabs button').forEach(el=>el.classList.toggle('active',el.dataset.type===state.type));
     const query=$('#search').value.trim().toLowerCase();
-    const filtered=entries.filter(entry=>(state.filter!=='favorite'||entry.favorite)&&(state.type!=='login'||entry.logins.length)&&(state.type!=='totp'||entry.totps.length)&&(!query||[entry.title,entry.url,...entry.logins.map(l=>l.username),...entry.totps.map(l=>l.label)].some(value=>value.toLowerCase().includes(query))));
+    const filtered=entries.filter(entry=>(state.filter!=='favorite'||entry.favorite)&&(!query||[entry.title,entry.url,...entry.logins.map(l=>l.username),...entry.totps.map(l=>l.label)].some(value=>value.toLowerCase().includes(query))));
     filtered.sort((a,b)=>b.updated_at-a.updated_at);
-    $('#page-title').textContent=t(state.filter==='favorite'?'favorites':state.type==='totp'?'twoFactor':state.type==='login'?'accounts':'allCredentials');
+    $('#page-title').textContent=t(state.filter==='favorite'?'favorites':'allCredentials');
     $('#results-count').textContent=t('itemCount',{n:filtered.length});
     $('#entries').innerHTML=filtered.map(renderCard).join('');
     $('#empty-state').hidden=!!filtered.length;
@@ -153,20 +152,8 @@ import { readQrImage } from './qr.ts';
   }
   function totpFields(item={}) {
     const n=++itemSequence;
-    return `<div class="form-item token-item">${iconButton('close','remove-item','removeItem','','remove-item')}<label class="field-label" for="token-secret-${n}">${escape(t('totpSecret'))}</label><div class="input-wrap"><input id="token-secret-${n}" data-field="secret" type="password" value="${escape(item.secret||'')}" maxlength="4096" autocomplete="off" placeholder="${escape(t('secretPlaceholder'))}">${iconButton('eye','toggle-password','showPassword',`data-target="token-secret-${n}"`)}</div>
+    return `<div class="form-item token-item">${iconButton('close','remove-item','removeItem','','remove-item')}<label class="field-label" for="token-secret-${n}">${escape(t('totpSecret'))}</label><div class="input-wrap"><input id="token-secret-${n}" data-field="secret" type="password" value="${escape(item.secret||'')}" maxlength="4096" autocomplete="off" placeholder="${escape(t('totpSecretPlaceholder'))}">${iconButton('eye','toggle-password','showPassword',`data-target="token-secret-${n}"`)}</div>
       <details class="advanced-options"><summary>${escape(t('advanced'))}</summary><label class="field-label" for="token-label-${n}">${escape(t('totpName'))}</label><input class="input" id="token-label-${n}" data-field="label" value="${escape(item.label||'')}" maxlength="100" placeholder="${escape(t('totpNamePlaceholder'))}"><div class="token-options">${[['digits',[6,8]],['period',[15,30,60]],['algorithm',['SHA1','SHA256','SHA512']]].map(([name,options])=>`<label for="token-${name}-${n}">${escape(t(name))}<select class="select" id="token-${name}-${n}" data-field="${name}">${options.map(value=>`<option value="${value}" ${String(item[name]??(name==='digits'?6:name==='period'?30:'SHA1'))===String(value)?'selected':''}>${value}${name==='period'?'s':''}</option>`).join('')}</select></label>`).join('')}</div></details></div>`;
-  }
-  function entryMode(mode) {
-    const form=$('#entry-form');if(!form)return;
-    for(const section of $$('[data-entry-section]',form)){
-      const enabled=mode==='both'||section.dataset.entrySection===mode;
-      section.hidden=!enabled;
-      $$('input,select,button',section).forEach(input=>input.disabled=!enabled);
-    }
-    if(mode!=='totp'&&!$('.login-item',form))$('#login-items').innerHTML=loginFields();
-    if(mode!=='login'&&!$('.token-item',form))$('#token-items').innerHTML=totpFields();
-    const original=form.dataset.originalMode;
-    $('#mode-warning').hidden=!form.dataset.id||original===mode||mode==='both';
   }
   function applyQrToken(token) {
     const form=$('#entry-form');if(!form)return;
@@ -195,28 +182,23 @@ import { readQrImage } from './qr.ts';
   async function editEntry(id) {
     const entry=id?await request('get',{id}):null;
     closeDrawer();
-    const mode=entry?(entry.logins.length?(entry.totps.length?'both':'login'):'totp'):(state.type==='totp'?'totp':'login');
-    const body=`<form id="entry-form" data-id="${id||''}" data-version="${entry?.version||''}" data-original-mode="${mode}">
-      <fieldset class="entry-modes"><legend class="sr-only">${escape(t('saveContent'))}</legend>${[['login','saveLogin'],['totp','saveTotp'],['both','saveBoth']].map(([value,label])=>`<label><input type="radio" name="entry-mode" value="${value}" ${value===mode?'checked':''}><span>${escape(t(label))}</span></label>`).join('')}</fieldset>
-      <p id="mode-warning" class="field-hint" hidden>${escape(t('modeRemovalHint'))}</p>
+    const body=`<form id="entry-form" data-id="${id||''}" data-version="${entry?.version||''}">
       ${field('title','entry-title',entry?.title,'titlePlaceholder','text','required maxlength="150"')}
-      <section data-entry-section="login"><div class="section-heading"><h3>${escape(t('accounts'))}</h3><button type="button" class="text-button" data-action="add-login">${icon('plus')}${escape(t('addLogin'))}</button></div><div id="login-items">${(entry?entry.logins:[{}]).map(loginFields).join('')}</div></section>
-      <section data-entry-section="totp"><div class="section-heading"><h3>${escape(t('twoFactor'))}</h3><button type="button" class="text-button" data-action="add-totp">${icon('plus')}${escape(t('addTotp'))}</button></div><div id="token-items">${(entry?.totps||[]).map(totpFields).join('')}</div>
-        <div class="qr-import"><label class="text-button qr-image-label">${icon('scan')}<span>${escape(t('selectQrImage'))}</span><input id="qr-image" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-label="${escape(t('selectQrImage'))}"></label><span id="qr-status" role="status"></span></div></section>
+      <section><div id="login-items">${(entry?.logins.length?entry.logins:[{}]).map(loginFields).join('')}</div></section>
+      <section><div id="token-items">${(entry?.totps.length?entry.totps:[{}]).map(totpFields).join('')}</div>
+        <div class="qr-import"><button type="button" class="text-button" data-action="add-login">${icon('plus')}${escape(t('addLogin'))}</button><button type="button" class="text-button" data-action="add-totp">${icon('plus')}${escape(t('addTotp'))}</button><label class="text-button qr-image-label">${icon('scan')}<span>${escape(t('selectQrImage'))}</span><input id="qr-image" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-label="${escape(t('selectQrImage'))}"></label><span id="qr-status" role="status"></span></div></section>
       <details class="entry-options" id="entry-options"><summary>${escape(t('moreOptions'))}</summary>${field('website','entry-url',entry?.url,'websitePlaceholder','text','maxlength="2000"')}
       <label class="field-label" for="entry-notes">${escape(t('notes'))}</label><textarea id="entry-notes" class="input" rows="2" maxlength="10000" placeholder="${escape(t('notesPlaceholder'))}">${escape(entry?.notes||'')}</textarea><label class="form-favorite"><input type="checkbox" id="entry-favorite" ${entry?.favorite?'checked':''}>${escape(t('markFavorite'))}</label></details><div id="form-error" class="inline-error" role="alert" hidden></div></form>`;
     openModal(t(id?'editCredential':'addCredential'),body,`<button class="button secondary" data-action="close-modal">${escape(t('cancel'))}</button><button type="submit" form="entry-form" class="button primary">${escape(t('save'))}</button>`,'editor');
-    entryMode(mode);$('#entry-title').focus();
+    $('#entry-title').focus();
   }
   async function saveEntry(form) {
     const readItems=selector=>$$(selector,form).map(node=>Object.fromEntries($$('[data-field]',node).map(input=>[input.dataset.field,['digits','period'].includes(input.dataset.field)?Number(input.value):input.value])));
-    const mode=$('[name="entry-mode"]:checked',form).value;
-    const data={title:$('#entry-title').value.trim(),url:$('#entry-url').value.trim(),notes:$('#entry-notes').value,favorite:$('#entry-favorite').checked,logins:mode==='totp'?[]:readItems('.login-item').filter(item=>item.username.trim()||item.password),totps:mode==='login'?[]:readItems('.token-item')};
+    const data={title:$('#entry-title').value.trim(),url:$('#entry-url').value.trim(),notes:$('#entry-notes').value,favorite:$('#entry-favorite').checked,logins:readItems('.login-item').filter(item=>item.username.trim()||item.password||item.label.trim()),totps:readItems('.token-item').filter(item=>item.secret.trim()||item.label.trim())};
     if(!data.logins.length&&!data.totps.length)throw new Error(t('credential_required'));
-    if(mode==='both'&&(!data.logins.length||!data.totps.length))throw new Error(t('both_required'));
     const id=form.dataset.id;
     await request('save',{id:id||undefined,entry:data,version:id?Number(form.dataset.version):undefined});
-    if(!id){state.filter='all';state.type='all';$('#search').value='';}
+    if(!id){state.filter='all';$('#search').value='';}
     closeModal();toast(t('saved'));await loadEntries();
   }
   async function detail(id) {
@@ -261,7 +243,7 @@ import { readQrImage } from './qr.ts';
     if(action==='scan-page'){
       button.disabled=true;
       try{
-        await request('qr-start');window.close();
+        await request('qr-start',{labels:{hint:t('pageScanHint'),cancel:t('cancel'),small:t('qr_selection_small'),scanning:t('qrScanning'),saved:t('qrSaved'),failed:t('qr_capture_failed'),errors:Object.fromEntries(['qr_not_found','qr_not_totp','invalid_totp','totp_only','qr_page_changed','unauthorized','forbidden','too_large'].map(code=>[code,t(code)]))}});window.close();
       }finally{if(button.isConnected)button.disabled=false;}
       return;
     }
@@ -278,8 +260,7 @@ import { readQrImage } from './qr.ts';
     if(action==='theme'){theme=document.documentElement.dataset.theme==='dark'?'light':'dark';localStorage.setItem('credmemo-theme',theme);applyTheme();toast(t(theme));return;}
     if(action==='toggle-password'){const input=document.getElementById(button.dataset.target);input.type=input.type==='password'?'text':'password';$('use',button).setAttribute('href',`/static/icons.svg#${input.type==='password'?'eye':'eye-off'}`);return;}
     if(action==='filter'){state.filter=state.filter==='favorite'?'all':'favorite';render();return;}
-    if(action==='type-filter'){state.type=button.dataset.type;render();return;}
-    if(action==='clear'){state.filter='all';state.type='all';$('#search').value='';render();return;}
+    if(action==='clear'){state.filter='all';$('#search').value='';render();return;}
     if(action==='new'||action==='edit')return editEntry(id);
     if(action==='detail')return detail(id);
     if(action==='close-modal')return closeModal();
@@ -324,7 +305,6 @@ import { readQrImage } from './qr.ts';
   });
   document.addEventListener('change',async event=>{
     const input=event.target;
-    if(input.name==='entry-mode')return entryMode(input.value);
     if(input.id==='qr-image')return importQrImage(input);
     if(input.id==='theme-select'){theme=input.value;localStorage.setItem('credmemo-theme',theme);applyTheme();return;}
     if(input.id==='language-select'){setLanguage(input.value);settings();return;}

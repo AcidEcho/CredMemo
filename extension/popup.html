@@ -44,9 +44,8 @@
         <div class="page-heading"><h1 id="page-title" data-i18n="allCredentials">全部凭证</h1><div class="heading-actions"><button class="button scan-button" data-action="scan-page" data-i18n-aria="scanSelection"><svg><use href="/static/icons.svg#scan"/></svg><span data-i18n="scanShort">扫码</span></button><button class="button primary" data-action="new" data-i18n-aria="addCredential"><svg><use href="/static/icons.svg#plus"/></svg><span data-i18n="newShort">新建</span></button></div></div>
         <section class="vault-section">
           <div class="vault-toolbar">
-            <div class="filter-tabs"><button class="active" data-action="type-filter" data-type="all" data-i18n="all">全部</button><button data-action="type-filter" data-type="login" data-i18n="accounts">账号密码</button><button data-action="type-filter" data-type="totp" data-i18n="twoFactor">两步验证</button></div>
-            <button class="icon-button favorite-filter" data-action="filter" data-filter="favorite" aria-pressed="false" data-i18n-aria="favorites"><svg><use href="/static/icons.svg#star"/></svg></button>
             <div class="search-box"><svg><use href="/static/icons.svg#search"/></svg><input id="search" data-i18n-placeholder="search" data-i18n-aria="search" type="search" autocomplete="off"><kbd>/</kbd></div>
+            <button class="icon-button favorite-filter" data-action="filter" data-filter="favorite" aria-pressed="false" data-i18n-aria="favorites"><svg><use href="/static/icons.svg#star"/></svg></button>
           </div>
           <div class="results-line"><span id="results-count"></span><span class="muted" data-i18n="codesRefresh">动态码随时间自动刷新</span></div>
           <div id="entries" class="entries-grid" aria-live="polite"></div><div id="empty-state" class="empty-state" hidden></div>

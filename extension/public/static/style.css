@@ -150,9 +150,6 @@ input::placeholder,textarea::placeholder{color:var(--placeholder)}
 .stat-label .status-dot{width:4px;height:4px}
 .stat-decoration{color:var(--green);margin-left:auto;align-self:flex-start;font-size:18px}
 .vault-toolbar{display:flex;justify-content:space-between;gap:15px;align-items:center;padding:0 0 15px;border-bottom:1px solid var(--border)}
-.filter-tabs{display:flex;gap:3px;flex-shrink:0}
-.filter-tabs button{font-size:11px;padding:7px 13px;color:var(--muted);border-radius:5px}
-.filter-tabs button.active{background:var(--tab-bg);color:var(--text);font-weight:550}
 .vault-tools{display:flex;align-items:center;gap:10px;min-width:0}
 .search-box{border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface);min-width:100px;max-width:290px}
 .search-box>svg{width:15px;height:15px;color:var(--muted)}
@@ -423,8 +420,6 @@ to{opacity:1;transform:translateY(0)}
 .stat-card strong{font-size:25px}
 .stat-decoration{display:none}
 .vault-toolbar{gap:13px;padding-bottom:13px}
-.filter-tabs{gap:4px}
-.filter-tabs button{font-size:11px;padding:6px 13px}
 .vault-tools{gap:7px}
 .search-box{padding:6px 8px}
 .search-box input{font-size:10px}

@@ -11,7 +11,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup: resolve('extension/popup.html'),
-        scanner: resolve('extension/scan.html'),
         background: resolve('extension/src/background.ts'),
       },
       output: {

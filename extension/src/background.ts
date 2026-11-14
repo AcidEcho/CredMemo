@@ -1,12 +1,13 @@
 import { Vault, SerialQueue } from './vault.ts';
 import { fail, VaultError } from './types.ts';
 import { currentTarget, fillCredential } from './fill.ts';
-import { object, text } from './validation.ts';
-import { normalizeTotp } from './totp.ts';
+import { object, origin, text } from './validation.ts';
+import { capturePageQr, type PageScan } from './qr-capture.ts';
+import { clearPageQr, selectPageQr, type PageScanLabels } from './qr-selection.ts';
+import { imageRegion, type QrRegion } from './qr.ts';
 
 const QR_SCAN_KEY = 'credmemo-qr-scan';
 const QR_RESULT_KEY = 'credmemo-qr-result';
-interface ScanWindow { kind: 'desktop'; windowId: number; tabId: number; parentWindowId: number; }
 
 const vault = new Vault(chrome.storage.local, chrome.storage.session);
 const queue = new SerialQueue();
@@ -23,39 +24,46 @@ export function trustedSender(sender: chrome.runtime.MessageSender, runtimeId: s
   } catch { return false; }
 }
 
-async function openScanner() {
-  const pending = (await chrome.storage.session.get(QR_SCAN_KEY))[QR_SCAN_KEY] as ScanWindow | undefined;
-  if (pending?.kind === 'desktop') {
-    try { await chrome.windows.update(pending.windowId, { focused: true }); return { selecting: true }; } catch {}
+async function clearScan() {
+  const scan = (await chrome.storage.session.get(QR_SCAN_KEY))[QR_SCAN_KEY] as PageScan | undefined;
+  await chrome.storage.session.remove(QR_SCAN_KEY);
+  if (scan?.kind === 'page') {
+    try { await chrome.scripting.executeScript({ target: { tabId: scan.tabId, frameIds: [0] }, func: clearPageQr }); } catch {}
   }
-  const parent = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
-  const created = await chrome.windows.create({ url: chrome.runtime.getURL('scan.html'), type: 'popup', width: 1040, height: 760, focused: true });
-  if (!created?.id || !created.tabs?.[0]?.id || !parent.id) fail('screen_capture_failed');
-  await chrome.storage.session.set({ [QR_SCAN_KEY]: { kind: 'desktop', windowId: created.id, tabId: created.tabs[0].id, parentWindowId: parent.id } satisfies ScanWindow });
-  return { selecting: true };
 }
 
-async function scannerRequest(input: Record<string, unknown>, sender: chrome.runtime.MessageSender) {
-  const scan = (await chrome.storage.session.get(QR_SCAN_KEY))[QR_SCAN_KEY] as ScanWindow | undefined;
-  if (!scan || scan.kind !== 'desktop' || sender.id !== chrome.runtime.id || sender.tab?.id !== scan.tabId || sender.tab.windowId !== scan.windowId
-    || sender.url !== chrome.runtime.getURL('scan.html') || sender.frameId !== 0) fail('forbidden');
-  if (input.action === 'status') return vault.status();
-  if (input.action !== 'save') fail('invalid_input');
-  const token = normalizeTotp(object(input.token));
+async function startPageScan(args: Record<string, unknown>) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id || !tab.url || !origin(tab.url)) fail('qr_page_unavailable');
+  const input = object(args.labels), errors = object(input.errors);
+  const labels = Object.fromEntries(['hint', 'cancel', 'small', 'scanning', 'saved', 'failed'].map(key => [key, text(input[key], 200)])) as unknown as PageScanLabels;
+  labels.errors = Object.fromEntries(['qr_not_found', 'qr_not_totp', 'invalid_totp', 'totp_only', 'qr_page_changed', 'unauthorized', 'forbidden', 'too_large'].map(key => [key, text(errors[key], 200)]));
+  await clearScan();
+  const scan: PageScan = { kind: 'page', nonce: crypto.randomUUID(), tabId: tab.id, windowId: tab.windowId, url: tab.url };
+  await chrome.storage.session.set({ [QR_SCAN_KEY]: scan });
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id, frameIds: [0] }, func: selectPageQr, args: [scan.nonce, labels] });
+    return { selecting: true };
+  } catch { await clearScan(); return fail('qr_page_unavailable'); }
+}
+
+async function selectionRequest(input: Record<string, unknown>, sender: chrome.runtime.MessageSender) {
+  const scan = (await chrome.storage.session.get(QR_SCAN_KEY))[QR_SCAN_KEY] as PageScan | undefined;
+  if (!scan || scan.kind !== 'page' || sender.id !== chrome.runtime.id || sender.tab?.id !== scan.tabId || sender.tab.windowId !== scan.windowId
+    || sender.url !== scan.url || sender.frameId !== 0 || input.nonce !== scan.nonce) fail('forbidden');
+  if (input.action === 'cancel') { await chrome.storage.session.remove(QR_SCAN_KEY); return { cancelled: true }; }
+  if (input.action !== 'select') fail('invalid_input');
+  const expiry = await vault.touch();
+  await chrome.alarms.create('vault-lock', { when: expiry.expiresAt });
+  imageRegion(input.region, 1, 1);
+  const token = await capturePageQr(scan, input.region as QrRegion);
   const title = (token.label || '2FA').slice(0, 150);
-  const saved = await vault.save({ title, url: '', notes: '', favorite: false, logins: [], totps: [token] });
+  const saved = await vault.save({ title, url: new URL(scan.url).origin, notes: '', favorite: false, logins: [], totps: [token] });
   await chrome.storage.session.set({ [QR_RESULT_KEY]: { id: saved.id, title } });
   await chrome.storage.session.remove(QR_SCAN_KEY);
-  // 保存完成后回到发起扫码的浏览器窗口，再打开动态码列表。
   setTimeout(() => {
-    void (async () => {
-      try {
-        await chrome.windows.update(scan.parentWindowId, { focused: true });
-        await chrome.action.openPopup({ windowId: scan.parentWindowId });
-        await chrome.windows.remove(scan.windowId);
-      } catch {}
-    })();
-  }, 700);
+    if (chrome.action.openPopup) void chrome.action.openPopup({ windowId: scan.windowId }).catch(() => {});
+  }, 100);
   return { saved: true };
 }
 
@@ -66,7 +74,8 @@ async function handle(action: string, args: Record<string, unknown>) {
     case 'unlock': return vault.unlock(args.password);
     case 'lock':
       await chrome.alarms.clear('vault-lock');
-      await chrome.storage.session.remove([QR_SCAN_KEY, QR_RESULT_KEY]);
+      await clearScan();
+      await chrome.storage.session.remove(QR_RESULT_KEY);
       return vault.lock();
     case 'touch': {
       const result = await vault.touch();
@@ -86,7 +95,7 @@ async function handle(action: string, args: Record<string, unknown>) {
     case 'target': return currentTarget();
     case 'qr-start':
       await vault.touch();
-      return openScanner();
+      return startPageScan(args);
     case 'qr-result': {
       const result = (await chrome.storage.session.get(QR_RESULT_KEY))[QR_RESULT_KEY] ?? null;
       await chrome.storage.session.remove(QR_RESULT_KEY);
@@ -103,8 +112,8 @@ async function handle(action: string, args: Record<string, unknown>) {
 }
 
 chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
-  if (message && typeof message === 'object' && (message as Record<string, unknown>).type === 'credmemo-scan') {
-    queue.run(async () => { await ready; return scannerRequest(object(message), sender); }).then(
+  if (message && typeof message === 'object' && (message as Record<string, unknown>).type === 'credmemo-qr-selection') {
+    queue.run(async () => { await ready; return selectionRequest(object(message), sender); }).then(
       data => reply({ ok: true, data }),
       error => reply({ ok: false, error: error instanceof VaultError ? error.code : 'local_error' }),
     );
@@ -137,10 +146,16 @@ chrome.runtime.onStartup.addListener(() => {
   void queue.run(async () => { await ready; await vault.lock(); });
 });
 
-chrome.windows.onRemoved.addListener(windowId => {
+chrome.tabs.onRemoved.addListener(tabId => {
   void queue.run(async () => {
     await ready;
-    const scan = (await chrome.storage.session.get(QR_SCAN_KEY))[QR_SCAN_KEY] as ScanWindow | undefined;
-    if (scan?.kind === 'desktop' && scan.windowId === windowId) await chrome.storage.session.remove(QR_SCAN_KEY);
+    const scan = (await chrome.storage.session.get(QR_SCAN_KEY))[QR_SCAN_KEY] as PageScan | undefined;
+    if (scan?.kind === 'page' && scan.tabId === tabId) await chrome.storage.session.remove(QR_SCAN_KEY);
   });
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'session' && changes['credmemo-session'] && !changes['credmemo-session'].newValue) {
+    void queue.run(async () => { await ready; await clearScan(); });
+  }
 });
