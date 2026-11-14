@@ -35,8 +35,9 @@ export function fillPage(expectedOrigin: string, login: LoginItem) {
   return filled ? { filled, usernameOnly: !passwordInput } : { error: 'no_fields' };
 }
 
-export async function currentTarget() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+export async function currentTarget(windowId?: unknown) {
+  if (windowId !== undefined && (!Number.isInteger(windowId) || Number(windowId) < 0)) fail('invalid_input');
+  const [tab] = await chrome.tabs.query({ active: true, ...(windowId === undefined ? { currentWindow: true } : { windowId: Number(windowId) }) });
   if (!tab?.id || !tab.url || !origin(tab.url)) return null;
   const url = new URL(tab.url);
   return { id: tab.id, origin: url.origin, hostname: url.hostname };

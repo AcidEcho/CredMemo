@@ -16,7 +16,7 @@ class MemoryStorage implements StorageArea {
   async remove(key: string) { delete this.values[key]; }
 }
 
-const sample = (): Credential => ({ title: 'Synthetic fixture', url: 'https://login.example.test', notes: '<script>fixture</script>', favorite: false,
+const sample = (): Credential => ({ title: 'Synthetic fixture', url: 'https://login.example.test', notes: '<script>fixture</script>',
   logins: [{ label: 'First', username: 'fixture@example.test', password: crypto.randomUUID() }, { label: 'Second', username: 'another@example.test', password: crypto.randomUUID() }],
   totps: [{ label: 'RFC public test vector', secret: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', digits: 6, period: 30, algorithm: 'SHA1' }] });
 
@@ -133,6 +133,7 @@ test('invalid imports are atomic, empty imports and oversized batches are reject
   await vault.save(sample());
   const before = structuredClone(local.values);
   await assert.rejects(vault.import([sample(), { title: 'Missing credentials' }]), code('credential_required'));
+  await assert.rejects(vault.import([sample(), { ...sample(), totps: [{ secret: `otpauth://totp/Fixture?secret=${sample().totps[0].secret}` }] }]), code('invalid_totp'));
   await assert.rejects(vault.import([]), code('empty_import'));
   await assert.rejects(vault.import(Array(5001).fill(sample())), code('import_invalid'));
   assert.deepEqual(local.values, before);
@@ -204,12 +205,13 @@ test('credential validation rejects unsafe URLs and oversized fields', () => {
   assert.equal(credential({ ...sample(), url: 'example.test' }).url, 'https://example.test');
 });
 
-test('legacy imports discard retired groups while preserving credentials', async () => {
+test('legacy imports discard retired groups and favorites while preserving credentials', async () => {
   const { vault, master } = await fixture();
   const original = sample();
-  await vault.import([{ ...original, group: 'Legacy fixture' }]);
+  await vault.import([{ ...original, group: 'Legacy fixture', favorite: true }]);
   const [entry] = (await vault.list()).entries;
   assert.ok(!('group' in entry));
+  assert.ok(!('favorite' in entry));
   assert.deepEqual((await vault.get(entry.id)).logins, original.logins);
   assert.deepEqual((await vault.export(master)).entries[0], original);
 });

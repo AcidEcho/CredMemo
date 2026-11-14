@@ -13,12 +13,12 @@ export function editorDraft(raw: unknown): EditorDraft {
   const input = object(raw), entry = object(input.entry);
   const id = text(input.id, 36), version = Number(input.version);
   if (id ? !/^[0-9a-f-]{36}$/.test(id) || !Number.isSafeInteger(version) || version < 1 : version !== 0) fail('invalid_input');
-  if (typeof entry.favorite !== 'boolean' || !Array.isArray(entry.logins) || !Array.isArray(entry.totps)
+  if (!Array.isArray(entry.logins) || !Array.isArray(entry.totps)
     || entry.logins.length > 30 || entry.totps.length > 30) fail('invalid_input');
   const tokenIndex = input.tokenIndex;
   if (!Number.isInteger(tokenIndex) || Number(tokenIndex) < 0 || Number(tokenIndex) >= entry.totps.length) fail('invalid_input');
   return { id, version, tokenIndex: Number(tokenIndex), entry: {
-    title: text(entry.title, 150), url: text(entry.url, 2000), notes: text(entry.notes, 10000), favorite: entry.favorite,
+    title: text(entry.title, 150), url: text(entry.url, 2000), notes: text(entry.notes, 10000),
     logins: entry.logins.map(value => {
       const item = object(value);
       return { label: text(item.label, 100), username: text(item.username, 320), password: text(item.password, 1000) };

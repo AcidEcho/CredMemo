@@ -36,8 +36,7 @@ export function credential(raw: unknown): Credential {
   const logins = item.logins ?? [], totps = item.totps ?? [];
   if (!Array.isArray(logins) || !Array.isArray(totps) || logins.length > 30 || totps.length > 30) fail('invalid_input');
   if (!logins.length && !totps.length) fail('credential_required');
-  if (item.favorite !== undefined && typeof item.favorite !== 'boolean') fail('invalid_input');
-  return { title, url, notes: text(item.notes, 10000), favorite: item.favorite === true,
+  return { title, url, notes: text(item.notes, 10000),
     logins: logins.map(login), totps: totps.map(value => normalizeTotp(object(value))) };
 }
 

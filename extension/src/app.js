@@ -1,5 +1,6 @@
 import { I18N } from './i18n.js';
-import { normalizeTotp } from './totp.ts';
+import QRCode from 'qrcode';
+import { totpQrPayload } from './totp-qr.ts';
 (() => {
   'use strict';
   const {t} = I18N;
@@ -11,7 +12,7 @@ import { normalizeTotp } from './totp.ts';
   const escape = value => String(value ?? '').replace(/[&<>"']/g, char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const icon = name => `<svg aria-hidden="true"><use href="/static/icons.svg#${name}"/></svg>`;
   const iconButton = (name, action, label, attrs='', className='') => `<button type="button" class="icon-button ${className}" data-action="${action}" aria-label="${escape(t(label))}" title="${escape(t(label))}" ${attrs}>${icon(name)}</button>`;
-  const state = {unlocked:false,entries:[],codes:{},offset:0,filter:'all',authMode:'login',generation:0,lastActive:Date.now(),codePending:false,codeRetryAt:0,codeError:false};
+  const state = {unlocked:false,entries:[],codes:{},offset:0,authMode:'login',generation:0,lastActive:Date.now(),codePending:false,codeRetryAt:0,codeError:false};
   let theme = localStorage.getItem('credmemo-theme') || 'system';
   let selected = null;
   let modalOpener = null;
@@ -43,7 +44,7 @@ import { normalizeTotp } from './totp.ts';
   function showAuth() {
     state.generation++;state.unlocked=false;state.entries=[];state.codes={};state.codePending=false;state.codeRetryAt=0;state.codeError=false;selected=null;transferFile=null;
     closeModal();closeDrawer();$('#entries').replaceChildren();$('#auth-password').value='';$('#confirm-password').value='';
-    state.filter='all';$('#search').value='';render();
+    $('#search').value='';render();
     $('#app-screen').hidden=true;$('#auth-screen').hidden=false;$('#loading-screen').hidden=true;
     authMode(initialized?'unlock':'setup');
   }
@@ -63,9 +64,10 @@ import { normalizeTotp } from './totp.ts';
   async function showApp() {
     initialized=true;state.unlocked=true;state.lastActive=Date.now();document.documentElement.dataset.view='vault';$('#auth-screen').hidden=true;$('#app-screen').hidden=false;$('#loading-screen').hidden=true;
     $('#auth-password').value='';$('#confirm-password').value='';
-    target=await request('target');
+    const {id:windowId}=await chrome.windows.getCurrent();
+    target=await request('target',{windowId});
     const scanned=await request('qr-result');
-    if(scanned&&!scanned.editor){state.filter='all';$('#search').value='';toast(t('qrSaved'));}
+    if(scanned&&!scanned.editor){$('#search').value='';toast(t('qrSaved'));}
     await loadEntries();
     if(scanned?.editor){await editEntry(scanned.editor.id,scanned.editor);toast(t(scanned.outcome==='recognized'?'qrRecognized':'qrCancelled'));}
   }
@@ -81,26 +83,24 @@ import { normalizeTotp } from './totp.ts';
   function domain(url) { try {return new URL(url).hostname.replace(/^www\./,'');} catch{return '';} }
   function entryIcon(entry) {const color=[...entry.title].reduce((sum,ch)=>sum+ch.codePointAt(0),0)%5;return `<span class="service-icon color-${color}">${escape(entry.title.slice(0,1).toUpperCase())}</span>`;}
   function tokenBlock(id,index=0) {
-    return `<div class="totp-block" data-token="${id}:${index}"><div class="totp-header"><span>${icon('shield')}${escape(t('totpLabel'))}</span><span class="token-period"></span></div><div class="totp-body"><span class="totp-code">••• •••</span>${iconButton('copy','copy-code','copyCode',`data-id="${id}" data-index="${index}"`)}<div class="countdown"><svg viewBox="0 0 28 28"><circle class="track" cx="14" cy="14" r="12"/><circle class="progress" cx="14" cy="14" r="12"/></svg><span>—</span></div></div></div>`;
+    return `<div class="totp-block" data-token="${id}:${index}"><div class="totp-header"><span>${icon('shield')}${escape(t('totpLabel'))}</span><span class="token-period"></span></div><div class="totp-body"><span class="totp-code">••• •••</span>${iconButton('copy','copy-code','copyCode',`data-id="${id}" data-index="${index}"`)}${iconButton('scan','show-qr','showQr',`data-id="${id}" data-index="${index}"`)}<div class="countdown"><svg viewBox="0 0 28 28"><circle class="track" cx="14" cy="14" r="12"/><circle class="progress" cx="14" cy="14" r="12"/></svg><span>—</span></div></div></div>`;
   }
   function renderCard(entry) {
     const id=entry.id,first=entry.logins[0];
     const login=first?`<div class="entry-account">${icon('user')}<span title="${escape(first.username)}">${escape(first.username)}</span>${iconButton('copy','copy-username','copyUsername',`data-id="${id}"`)}</div><div class="entry-password">${icon('lock')}<span>••••••••••</span>${iconButton('eye','reveal-card','showPassword',`data-id="${id}"`)}${iconButton('copy','copy-password','copyPassword',`data-id="${id}" data-index="0"`)}</div>`:'';
     const footer=[entry.logins.length>1?`<span class="tag-count">${escape(t('accountCount',{n:entry.logins.length}))}</span>`:'',entry.totps.length>1?`<span class="tag-count">${escape(t('moreTokens',{n:entry.totps.length-1}))} 2FA</span>`:'',matchesSite(entry)&&entry.logins.length?`<button class="text-button fill-button" data-action="fill" data-id="${id}">${escape(t('fill'))}</button>`:''].join('');
-    return `<article class="entry-card" data-entry="${id}"><div class="entry-card-top"><button class="entry-card-top" data-action="detail" data-id="${id}" aria-label="${escape(t('viewDetails'))}" style="padding:0;text-align:left;flex:1;min-width:0">${entryIcon(entry)}<div class="entry-title"><h3>${escape(entry.title)}</h3>${entry.url?`<small>${escape(domain(entry.url))}</small>`:''}</div></button><span class="card-actions">${iconButton('edit','edit','editCredential',`data-id="${id}"`)}${iconButton('trash','delete','deleteCredential',`data-id="${id}"`,'delete-button')}<button class="icon-button favorite-button ${entry.favorite?'is-favorite':''}" data-action="favorite" data-id="${id}" aria-label="${escape(t(entry.favorite?'unfavorite':'favorite'))}" title="${escape(t(entry.favorite?'unfavorite':'favorite'))}">${icon('star')}</button></span></div>${login}${entry.totps.length?tokenBlock(id):''}${footer?`<div class="entry-card-footer">${footer}</div>`:''}</article>`;
+    return `<article class="entry-card" data-entry="${id}"><div class="entry-card-top"><button class="entry-card-top" data-action="detail" data-id="${id}" aria-label="${escape(t('viewDetails'))}" style="padding:0;text-align:left;flex:1;min-width:0">${entryIcon(entry)}<div class="entry-title"><h3>${escape(entry.title)}</h3>${entry.url?`<small>${escape(domain(entry.url))}</small>`:''}</div></button><span class="card-actions">${iconButton('edit','edit','editCredential',`data-id="${id}"`)}${iconButton('trash','delete','deleteCredential',`data-id="${id}"`,'delete-button')}</span></div>${login}${entry.totps.length?tokenBlock(id):''}${footer?`<div class="entry-card-footer">${footer}</div>`:''}</article>`;
   }
   function render() {
     const entries=state.entries;
-    const favorite=$('[data-action="filter"][data-filter="favorite"]');
-    favorite.classList.toggle('is-favorite',state.filter==='favorite');favorite.setAttribute('aria-pressed',String(state.filter==='favorite'));
     const query=$('#search').value.trim().toLowerCase();
-    const filtered=entries.filter(entry=>(state.filter!=='favorite'||entry.favorite)&&(!query||[entry.title,entry.url,...entry.logins.map(l=>l.username),...entry.totps.map(l=>l.label)].some(value=>value.toLowerCase().includes(query))));
+    const filtered=entries.filter(entry=>(!query||[entry.title,entry.url,...entry.logins.map(l=>l.username),...entry.totps.map(l=>l.label)].some(value=>value.toLowerCase().includes(query))));
     filtered.sort((a,b)=>b.updated_at-a.updated_at);
-    $('#page-title').textContent=t(state.filter==='favorite'?'favorites':'allCredentials');
+    $('#page-title').textContent=t('allCredentials');
     $('#results-count').textContent=t('itemCount',{n:filtered.length});
     $('#entries').innerHTML=filtered.map(renderCard).join('');
     $('#empty-state').hidden=!!filtered.length;
-    if(!filtered.length){const empty=entries.length===0;$('#empty-state').innerHTML=`<div class="empty-icon">${icon(empty?'layers':'search')}</div><h2>${escape(t(empty?'emptyTitle':'emptySearchTitle'))}</h2><p>${escape(t(empty?'emptyDescription':'emptySearchDescription'))}</p><button class="button ${empty?'primary':'secondary'}" data-action="${empty?'new':'clear'}">${icon(empty?'plus':'refresh')}${escape(t(empty?'addCredential':'clearFilters'))}</button>`;}
+    if(!filtered.length){const empty=entries.length===0;$('#empty-state').innerHTML=`<div class="empty-icon">${icon(empty?'layers':'search')}</div><h2>${escape(t(empty?'emptyTitle':'emptySearchTitle'))}</h2><p>${escape(t(empty?'emptyDescription':'emptySearchDescription'))}</p><button class="button ${empty?'primary':'secondary'}" data-action="${empty?'new':'clear'}">${icon(empty?'plus':'refresh')}${escape(t(empty?'addCredential':'clearSearch'))}</button>`;}
     tickCodes();codeStatus();
   }
   function codeStatus() {
@@ -160,7 +160,7 @@ import { normalizeTotp } from './totp.ts';
   async function editEntry(id,draft=null) {
     const entry=draft?{...draft.entry,version:draft.version}:id?await request('get',{id}):null;
     closeDrawer();
-    const body=`<form id="entry-form" data-id="${id||''}" data-version="${entry?.version||''}" data-favorite="${!!entry?.favorite}">
+    const body=`<form id="entry-form" data-id="${id||''}" data-version="${entry?.version||''}">
       ${field('title','entry-title',entry?.title,'titlePlaceholder','text','required maxlength="150"')}
       ${field('website','entry-url',entry?.url,'websitePlaceholder','text','maxlength="2000"')}
       <section><div id="login-items">${(entry?.logins.length?entry.logins:[{}]).map((item,index)=>loginFields(item,index===0)).join('')}</div></section>
@@ -172,7 +172,7 @@ import { normalizeTotp } from './totp.ts';
   }
   function editorValues(form) {
     const readItems=selector=>$$(selector,form).map(node=>Object.fromEntries($$('[data-field]',node).map(input=>[input.dataset.field,['digits','period'].includes(input.dataset.field)?Number(input.value):input.value])));
-    return {title:$('#entry-title').value,url:$('#entry-url').value,notes:$('#entry-notes').value,favorite:form.dataset.favorite==='true',logins:readItems('.login-item'),totps:readItems('.token-item')};
+    return {title:$('#entry-title').value,url:$('#entry-url').value,notes:$('#entry-notes').value,logins:readItems('.login-item'),totps:readItems('.token-item')};
   }
   async function saveEntry(form) {
     const data=editorValues(form);
@@ -180,13 +180,21 @@ import { normalizeTotp } from './totp.ts';
     if(!data.logins.length&&!data.totps.length)throw new Error(t('credential_required'));
     const id=form.dataset.id;
     await request('save',{id:id||undefined,entry:data,version:id?Number(form.dataset.version):undefined});
-    if(!id){state.filter='all';$('#search').value='';}
+    if(!id){$('#search').value='';}
     closeModal();toast(t('saved'));await loadEntries();
+  }
+  async function showQr(id,index) {
+    const entry=await request('get',{id}),token=entry.totps[Number(index)];
+    if(!token)throw new Error(t('invalid_totp'));
+    const payload=totpQrPayload(token,entry.title);
+    openModal(t('showQr'),`<div class="binding-qr"><p>${escape(token.label||entry.title)}</p><canvas id="totp-qr" role="img" aria-label="${escape(t('bindingQr'))}"></canvas><p class="qr-hint">${escape(t('qrSecretHint'))}</p></div>`,'','small');
+    try{await QRCode.toCanvas($('#totp-qr'),payload,{width:216,margin:4,errorCorrectionLevel:'M',color:{dark:'#000000',light:'#ffffff'}});}
+    catch{closeModal();throw new Error(t('local_error'));}
   }
   async function detail(id) {
     const entry=await request('get',{id});selected=entry;
     const date=value=>new Date(value*1000).toLocaleDateString(I18N.language==='zh'?'zh-CN':'en-US');
-    $('#drawer-root').innerHTML=`<div class="drawer-overlay"><section class="drawer" role="dialog" aria-modal="true" aria-labelledby="detail-title"><header class="drawer-header">${entryIcon(entry)}<div><h2 id="detail-title">${escape(entry.title)}</h2><small>${escape(t('personalVault'))}</small></div>${iconButton('close','close-drawer','close')}</header><div class="drawer-body">${entry.url?`<h3 class="detail-heading">${icon('globe')}${escape(t('website'))}</h3><a class="detail-url" href="${escape(entry.url)}" target="_blank" rel="noopener noreferrer">${escape(entry.url)}${icon('external')}</a>`:''}${entry.logins.length?`<h3 class="detail-heading">${icon('key')}${escape(t('loginGroups'))}</h3>`:''}${entry.logins.map((login,index)=>`<section class="detail-group">${login.label?`<h3>${escape(login.label)}</h3>`:''}<span class="detail-label">${escape(t('account'))}</span><div class="detail-row"><div class="detail-value">${escape(login.username)||'—'}</div>${iconButton('copy','copy-username','copyUsername',`data-id="${id}" data-index="${index}"`)}</div><span class="detail-label">${escape(t('password'))}</span><div class="detail-row"><div class="detail-value"><input type="password" readonly id="detail-password-${index}" aria-label="${escape(t('password'))}"></div>${iconButton('eye','toggle-password','showPassword',`data-target="detail-password-${index}"`)}${iconButton('copy','copy-password','copyPassword',`data-id="${id}" data-index="${index}"`)}</div></section>`).join('')}${entry.totps.length?`<h3 class="detail-heading">${icon('timer')}${escape(t('twoFactor'))}</h3>`:''}${entry.totps.map((token,index)=>`<section class="detail-group">${token.label?`<h3>${escape(token.label)}</h3>`:''}${tokenBlock(id,index)}</section>`).join('')}${entry.notes?`<h3 class="detail-heading">${icon('list')}${escape(t('notes'))}</h3><div class="detail-notes">${escape(entry.notes)}</div>`:''}<div class="detail-meta"><span>${escape(t('created'))} ${date(entry.created_at)}</span><span>${escape(t('updated'))} ${date(entry.updated_at)}</span></div></div><footer class="drawer-footer"><button class="button danger" data-action="delete" data-id="${id}">${icon('trash')}${escape(t('delete'))}</button><button class="button secondary" data-action="favorite" data-id="${id}">${icon('star')}${escape(t(entry.favorite?'unfavorite':'favorite'))}</button><button class="button primary" data-action="edit" data-id="${id}">${icon('edit')}${escape(t('edit'))}</button></footer></section></div>`;
+    $('#drawer-root').innerHTML=`<div class="drawer-overlay"><section class="drawer" role="dialog" aria-modal="true" aria-labelledby="detail-title"><header class="drawer-header">${entryIcon(entry)}<div><h2 id="detail-title">${escape(entry.title)}</h2><small>${escape(t('personalVault'))}</small></div>${iconButton('close','close-drawer','close')}</header><div class="drawer-body">${entry.url?`<h3 class="detail-heading">${icon('globe')}${escape(t('website'))}</h3><a class="detail-url" href="${escape(entry.url)}" target="_blank" rel="noopener noreferrer">${escape(entry.url)}${icon('external')}</a>`:''}${entry.logins.length?`<h3 class="detail-heading">${icon('key')}${escape(t('loginGroups'))}</h3>`:''}${entry.logins.map((login,index)=>`<section class="detail-group">${login.label?`<h3>${escape(login.label)}</h3>`:''}<span class="detail-label">${escape(t('account'))}</span><div class="detail-row"><div class="detail-value">${escape(login.username)||'—'}</div>${iconButton('copy','copy-username','copyUsername',`data-id="${id}" data-index="${index}"`)}</div><span class="detail-label">${escape(t('password'))}</span><div class="detail-row"><div class="detail-value"><input type="password" readonly id="detail-password-${index}" aria-label="${escape(t('password'))}"></div>${iconButton('eye','toggle-password','showPassword',`data-target="detail-password-${index}"`)}${iconButton('copy','copy-password','copyPassword',`data-id="${id}" data-index="${index}"`)}</div></section>`).join('')}${entry.totps.length?`<h3 class="detail-heading">${icon('timer')}${escape(t('twoFactor'))}</h3>`:''}${entry.totps.map((token,index)=>`<section class="detail-group">${token.label?`<h3>${escape(token.label)}</h3>`:''}${tokenBlock(id,index)}</section>`).join('')}${entry.notes?`<h3 class="detail-heading">${icon('list')}${escape(t('notes'))}</h3><div class="detail-notes">${escape(entry.notes)}</div>`:''}<div class="detail-meta"><span>${escape(t('created'))} ${date(entry.created_at)}</span><span>${escape(t('updated'))} ${date(entry.updated_at)}</span></div></div><footer class="drawer-footer"><button class="button danger" data-action="delete" data-id="${id}">${icon('trash')}${escape(t('delete'))}</button><button class="button primary" data-action="edit" data-id="${id}">${icon('edit')}${escape(t('edit'))}</button></footer></section></div>`;
     entry.logins.forEach((login,index)=>$(`#detail-password-${index}`).value=login.password);tickCodes();document.body.style.overflow='hidden';$('#drawer-root [data-action="close-drawer"]').focus();
   }
   function transfer(tab='backup') {
@@ -244,10 +252,10 @@ import { normalizeTotp } from './totp.ts';
     if(action==='language'){setLanguage(I18N.language==='zh'?'en':'zh');return;}
     if(action==='theme'){theme=document.documentElement.dataset.theme==='dark'?'light':'dark';localStorage.setItem('credmemo-theme',theme);applyTheme();toast(t(theme));return;}
     if(action==='toggle-password'){const input=document.getElementById(button.dataset.target);input.type=input.type==='password'?'text':'password';$('use',button).setAttribute('href',`/static/icons.svg#${input.type==='password'?'eye':'eye-off'}`);return;}
-    if(action==='filter'){state.filter=state.filter==='favorite'?'all':'favorite';render();return;}
-    if(action==='clear'){state.filter='all';$('#search').value='';render();return;}
+    if(action==='clear'){$('#search').value='';render();return;}
     if(action==='new'||action==='edit')return editEntry(id);
     if(action==='detail')return detail(id);
+    if(action==='show-qr')return showQr(id,index);
     if(action==='close-modal')return closeModal();
     if(action==='close-drawer')return closeDrawer();
     if(action==='lock')return lockVault();
@@ -257,7 +265,6 @@ import { normalizeTotp } from './totp.ts';
     if(action==='copy-username')return copy(state.entries.find(e=>e.id===id)?.logins[Number(index)]?.username||'');
     if(action==='copy-password'){const entry=selected?.id===id?selected:await request('get',{id});return copy(entry.logins[Number(index)].password);}
     if(action==='reveal-card'){const value=$('.entry-password>span',button.closest('.entry-card'));if(value.dataset.visible){value.textContent='••••••••••';delete value.dataset.visible;return;}const data=await request('get',{id});value.textContent=data.logins[0].password;value.style.cssText='letter-spacing:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:65%;font-size:11px';value.dataset.visible='true';setTimeout(()=>{if(value.isConnected){value.textContent='••••••••••';delete value.dataset.visible;}},15000);return;}
-    if(action==='favorite'){const entry=await request('get',{id});const {id:entryId,created_at,updated_at,...data}=entry;data.favorite=!data.favorite;await request('save',{id,entry:data,version:entry.version});await loadEntries();if(selected?.id===id)await detail(id);return;}
     if(action==='delete'){const entry=state.entries.find(e=>e.id===id);openModal(t('deleteCredential'),`<p class="confirm-text">${escape(t('deleteConfirm',{title:entry.title}))}</p>`,`<button class="button secondary" data-action="close-modal">${escape(t('cancel'))}</button><button class="button danger" data-action="confirm-delete" data-id="${id}" data-version="${entry.version}">${escape(t('delete'))}</button>`,'small');return;}
     if(action==='confirm-delete'){await request('delete',{id,version:Number(button.dataset.version)});closeModal();closeDrawer();toast(t('deleted'));return loadEntries();}
     if(action==='transfer')return transfer();
@@ -287,15 +294,6 @@ import { normalizeTotp } from './totp.ts';
   });
   document.addEventListener('change',async event=>{
     const input=event.target;
-    if(input.matches('.token-item [data-field=secret]')&&/^otpauth:\/\//i.test(input.value.trim())){
-      // 配置链接优先使用自身参数，无效内容留给保存时的校验处理。
-      try {
-        const item=input.closest('.token-item'),token=normalizeTotp({secret:input.value,label:$('[data-field=label]',item).value});
-        $$('[data-field]',item).forEach(field=>field.value=token[field.dataset.field]);
-        $('.advanced-options',item).hidden=token.digits===6&&token.period===30&&token.algorithm==='SHA1';
-      }catch{}
-      return;
-    }
     if(input.id==='theme-select'){theme=input.value;localStorage.setItem('credmemo-theme',theme);applyTheme();return;}
     if(input.id==='language-select'){setLanguage(input.value);settings();return;}
     if(input.id==='import-file'){

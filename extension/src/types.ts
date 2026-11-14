@@ -16,7 +16,6 @@ export interface Credential {
   title: string;
   url: string;
   notes: string;
-  favorite: boolean;
   logins: LoginItem[];
   totps: TotpItem[];
 }

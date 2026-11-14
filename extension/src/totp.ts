@@ -18,20 +18,9 @@ export function decodeBase32(secret: string): Uint8Array<ArrayBuffer> {
 
 export function normalizeTotp(raw: Record<string, unknown>): TotpItem {
   if (typeof raw.secret !== 'string' || raw.secret.length > 2048) fail('invalid_totp');
-  let secret = raw.secret.trim();
-  let label = typeof raw.label === 'string' ? raw.label : '';
-  let digits = raw.digits ?? 6, period = raw.period ?? 30, algorithm = raw.algorithm ?? 'SHA1';
-  if (/^otpauth:\/\//i.test(secret)) {
-    let url: URL;
-    try { url = new URL(secret); } catch { return fail('invalid_totp'); }
-    if (url.hostname.toLowerCase() !== 'totp') fail('totp_only');
-    secret = url.searchParams.get('secret') ?? '';
-    try { label ||= decodeURIComponent(url.pathname.slice(1)); } catch { return fail('invalid_totp'); }
-    digits = Number(url.searchParams.get('digits') ?? 6);
-    period = Number(url.searchParams.get('period') ?? 30);
-    algorithm = (url.searchParams.get('algorithm') ?? 'SHA1').toUpperCase();
-  }
-  secret = secret.replace(/[\s-]/g, '').toUpperCase().replace(/=+$/, '');
+  const secret = raw.secret.trim().replace(/[\s-]/g, '').toUpperCase().replace(/=+$/, '');
+  const label = typeof raw.label === 'string' ? raw.label : '';
+  const digits = raw.digits ?? 6, period = raw.period ?? 30, algorithm = raw.algorithm ?? 'SHA1';
   decodeBase32(secret);
   if (![6, 8].includes(Number(digits)) || ![15, 30, 60].includes(Number(period)) || !['SHA1', 'SHA256', 'SHA512'].includes(String(algorithm)) || label.length > 100) fail('invalid_totp');
   return { label, secret, digits: Number(digits) as 6 | 8, period: Number(period) as 15 | 30 | 60, algorithm: algorithm as TotpItem['algorithm'] };

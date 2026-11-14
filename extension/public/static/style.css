@@ -175,10 +175,6 @@ input::placeholder,textarea::placeholder{color:var(--placeholder)}
 .entry-title{flex:1;min-width:0}
 .entry-title h3{font-size:13px;font-weight:600;line-height:1.4;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .entry-title small{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
-.favorite-button{margin-left:auto;align-self:flex-start;min-width:24px;height:25px}
-.favorite-button svg{width:14px;height:14px}
-.favorite-button.is-favorite{color:var(--amber)}
-.favorite-button.is-favorite svg{fill:var(--amber-wash)}
 .entry-account{display:flex;align-items:center;gap:9px;margin:22px 0 14px;font-size:11px;color:var(--muted)}
 .entry-account>svg{width:13px;height:13px}
 .entry-account>span{white-space:nowrap;text-overflow:ellipsis;overflow:hidden;flex:1}
@@ -434,8 +430,6 @@ to{opacity:1;transform:translateY(0)}
 .service-icon{width:32px;height:32px;font-size:14px;border-radius:8px}
 .entry-title h3{font-size:11px}
 .entry-title small{font-size:8px}
-.favorite-button{min-width:18px}
-.favorite-button svg{width:12px;height:12px}
 .entry-account{font-size:9px;gap:5px;margin:18px 0 11px}
 .entry-account .icon-button{min-width:20px}
 .entry-password{margin-bottom:13px;font-size:12px;letter-spacing:1.5px}

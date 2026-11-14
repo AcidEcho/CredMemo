@@ -4,6 +4,7 @@ import os
 import subprocess
 import tempfile
 import uuid
+from urllib.parse import parse_qs, unquote, urlparse
 from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
@@ -24,6 +25,7 @@ process.stdout.write(JSON.stringify(out));})();'''
 
 
 def run():
+    (ROOT / 'release/screenshots').mkdir(parents=True,exist_ok=True)
     with sync_playwright() as p, tempfile.TemporaryDirectory(prefix='credmemo-qr-') as profile:
         ctx = p.chromium.launch_persistent_context(profile, executable_path=CHROME, headless=True,
             args=['--no-sandbox', '--enable-unsafe-extension-debugging', f'--disable-extensions-except={ROOT / "dist"}', f'--load-extension={ROOT / "dist"}'],
@@ -82,6 +84,11 @@ def run():
         login(); page.locator('.token-item [data-field=secret]').fill('invalid 2FA fixture')
         page.locator('button[form=entry-form]').click()
         expect(page.locator('#form-error')).to_contain_text('2FA 密钥或参数无效')
+        page.locator('.token-item [data-field=secret]').fill(URI)
+        page.locator('#entry-notes').click()
+        expect(page.locator('.token-item [data-field=secret]')).to_have_value(URI)
+        page.locator('button[form=entry-form]').click()
+        expect(page.locator('#form-error')).to_contain_text('2FA 密钥或参数无效')
         assert len(request('list')['entries']) == 3
         page.locator('#modal-root [data-action=close-modal]').first.click()
 
@@ -96,8 +103,39 @@ def run():
         page.locator('#entry-notes').fill('Preserve legacy configuration'); save()
         preserved = request('get', {'id': legacy['id']})
         assert preserved['logins'] == legacy['logins'] and preserved['totps'] == legacy['totps']
-        assert preserved['favorite'] is True
-        print('PASS: invalid input preserves saved data; legacy multi-item credentials, labels, favorite and special TOTP settings survive editing', flush=True)
+        assert 'favorite' not in preserved
+        print('PASS: invalid input preserves saved data; legacy multi-item credentials, labels and special TOTP settings survive editing; retired favorites are discarded', flush=True)
+        expect(page.locator('[data-action=favorite], [data-action=filter]')).to_have_count(0)
+        page.locator(f'[data-entry="{legacy["id"]}"] [data-action=detail]').click()
+        for index, token in enumerate(preserved['totps']):
+            if index:
+                page.locator('#drawer-root [data-action=close-drawer]').click()
+                page.locator('.topbar [data-action=theme]').click()
+                page.locator('.topbar [data-action=language]').click()
+                page.locator(f'[data-entry="{legacy["id"]}"] [data-action=detail]').click()
+            page.locator(f'#drawer-root [data-action=show-qr][data-index="{index}"]').click()
+            canvas = page.locator('#totp-qr')
+            expect(canvas).to_be_visible()
+            page.wait_for_function('()=>document.querySelector("#totp-qr").width>=200&&document.querySelector("#totp-qr").width<=216')
+            pixels = canvas.evaluate('node=>({width:node.width,height:node.height,data:Array.from(node.getContext("2d").getImageData(0,0,node.width,node.height).data)})')
+            assert pixels['data'][:4] == [255,255,255,255]
+            script = 'const fs=require("fs"),decode=require("jsqr");const image=JSON.parse(fs.readFileSync(0,"utf8"));const result=decode(new Uint8ClampedArray(image.data),image.width,image.height);if(!result)process.exit(1);process.stdout.write(result.data)'
+            decoded = subprocess.check_output(['node','-e',script],input=json.dumps(pixels).encode(),cwd=ROOT).decode()
+            parsed = urlparse(decoded); settings = parse_qs(parsed.query)
+            assert parsed.scheme == 'otpauth' and parsed.netloc == 'totp'
+            assert unquote(parsed.path[1:]) == token['label']
+            assert settings == {'secret':[PUBLIC_SECRET],'digits':[str(token['digits'])],'period':[str(token['period'])],'algorithm':[token['algorithm']]}
+            assert PUBLIC_SECRET not in page.locator('#modal-root').inner_html()
+            assert page.locator('.modal-body').evaluate('node=>node.scrollWidth<=node.clientWidth&&node.scrollHeight<=node.clientHeight')
+            page.screenshot(path=str(ROOT / 'release/screenshots' / f'binding-qr-{index}.png'),animations='disabled')
+            page.locator('#modal-root [data-action=close-modal]').click()
+        page.locator('#drawer-root [data-action=close-drawer]').click()
+        page.locator(f'[data-entry="{legacy["id"]}"] [data-action=show-qr]').click()
+        expect(page.locator('#totp-qr')).to_be_visible()
+        request('lock')
+        expect(page.locator('#totp-qr')).to_have_count(0)
+        assert PUBLIC_SECRET not in json.dumps(page.evaluate('chrome.storage.local.get(null)'))
+        print('PASS: rendered binding QR decodes to each saved 2FA configuration; locks remove QR; manual configuration links are rejected',flush=True)
         assert not errors, errors
         ctx.close()
     print('Save-mode acceptance complete.', flush=True)

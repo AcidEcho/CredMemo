@@ -41,14 +41,9 @@ test('6-digit output and 15/30/60-second boundaries', async () => {
   }
 });
 
-test('otpauth parsing honors algorithm and rejects HOTP, invalid Base32, bad options', () => {
-  const parsed = normalizeTotp({ secret: `otpauth://totp/Test%3Afixture?secret=${secrets.SHA256}&algorithm=SHA256&digits=8&period=60` });
-  assert.equal(parsed.label, 'Test:fixture');
-  assert.equal(parsed.algorithm, 'SHA256');
-  assert.equal(parsed.period, 60);
-  assert.equal(parsed.digits, 8);
+test('manual secrets accept Base32 and reject configuration links and invalid parameters', () => {
   assert.deepEqual(decodeBase32(secrets.SHA1.toLowerCase()), decodeBase32(secrets.SHA1));
-  for (const secret of ['INVALID!', 'A'.repeat(17), 'A'.repeat(17) + 'B', 'otpauth://hotp/Test?secret=' + secrets.SHA1]) assert.throws(() => normalizeTotp({ secret }));
+  for (const secret of ['INVALID!', 'A'.repeat(17), 'A'.repeat(17) + 'B', `otpauth://totp/Test?secret=${secrets.SHA1}`, 'otpauth://hotp/Test?secret=' + secrets.SHA1]) assert.throws(() => normalizeTotp({ secret }));
   for (const options of [{ digits: 7 }, { period: 45 }, { algorithm: 'MD5' }]) assert.throws(() => normalizeTotp({ secret: secrets.SHA1, ...options }));
 });
 

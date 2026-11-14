@@ -127,11 +127,7 @@ def run():
         assert [item['label'] for item in preserved['logins']] == ['主账号', '备用账号']
         assert [item['label'] for item in preserved['totps']] == ['邮箱验证器', '备用验证器']
         card = page.locator(f'.entry-card[data-entry="{first_id}"]')
-        card.locator('[data-action=favorite]').click()
-        expect(card.locator('[data-action=favorite]')).to_have_class(re.compile('is-favorite'))
-        page.locator('[data-action=filter][data-filter=favorite]').click()
-        expect(page.locator('.entry-card')).to_have_count(1)
-        page.locator('[data-action=filter][data-filter=favorite]').click()
+        expect(page.locator('[data-action=favorite], [data-action=filter], .favorite-filter')).to_have_count(0)
         page.locator('#search').fill('developer@')
         expect(page.locator('.entry-card')).to_have_count(1)
         page.locator('#search').fill('missing-fixture')
@@ -144,7 +140,7 @@ def run():
         visible = page.locator('.entry-card').evaluate_all('cards=>cards.map(card=>card.dataset.entry)')
         timestamps = [updated[entry_id] for entry_id in visible]
         assert timestamps == sorted(timestamps, reverse=True)
-        print('PASS: edit, favorites, search, empty-result reset and latest-update ordering without dropdowns', flush=True)
+        print('PASS: edit, removed favorites, search, empty-result reset and latest-update ordering without dropdowns', flush=True)
 
         ctx.grant_permissions(['clipboard-read'])
         card.locator('[data-action=copy-username]').click()

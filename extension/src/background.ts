@@ -83,7 +83,7 @@ async function selectionRequest(input: Record<string, unknown>, sender: chrome.r
     if (!draft.entry.title.trim()) draft.entry.title = title;
     await chrome.storage.session.set({ [QR_RESULT_KEY]: { editor: draft, outcome: 'recognized' } });
   } else {
-    const saved = await vault.save({ title, url: new URL(scan.url).origin, notes: '', favorite: false, logins: [], totps: [token] });
+    const saved = await vault.save({ title, url: new URL(scan.url).origin, notes: '', logins: [], totps: [token] });
     await chrome.storage.session.set({ [QR_RESULT_KEY]: { id: saved.id, title } });
   }
   await chrome.storage.session.remove(QR_SCAN_KEY);
@@ -116,7 +116,7 @@ async function handle(action: string, args: Record<string, unknown>) {
     case 'import': return vault.import(args.entries);
     case 'restore': return vault.restore(args.password, args.backup);
     case 'changePassword': return vault.changePassword(args.current_password, args.new_password);
-    case 'target': return currentTarget();
+    case 'target': return currentTarget(args.windowId);
     case 'qr-start':
       await vault.touch();
       return startPageScan(args);

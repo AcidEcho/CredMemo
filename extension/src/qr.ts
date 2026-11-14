@@ -25,7 +25,14 @@ export function imageRegion(raw: unknown, imageWidth: number, imageHeight: numbe
 
 export function totpFromQr(value: string): TotpItem {
   if (!/^otpauth:\/\//i.test(value)) fail('qr_not_totp');
-  return normalizeTotp({ secret: value });
+  if (value.length > 2048) fail('invalid_totp');
+  let url: URL, label: string;
+  try { url = new URL(value); label = decodeURIComponent(url.pathname.slice(1)); }
+  catch { return fail('invalid_totp'); }
+  if (url.hostname.toLowerCase() !== 'totp') fail('totp_only');
+  return normalizeTotp({ secret: url.searchParams.get('secret') ?? '', label,
+    digits: Number(url.searchParams.get('digits') ?? 6), period: Number(url.searchParams.get('period') ?? 30),
+    algorithm: (url.searchParams.get('algorithm') ?? 'SHA1').toUpperCase() });
 }
 
 export function decodeQrPixels(data: Uint8ClampedArray, width: number, height: number): TotpItem {

@@ -15,3 +15,9 @@ Copyright (c) 2019-present, VoidZero Inc. and Vite contributors.
 Project: https://github.com/vitejs/vite
 License: MIT. The license is included at licenses/vite.txt in the extension
 package and extension/public/licenses/vite.txt in the source tree.
+
+This product includes node-qrcode 1.5.4 by Ryan Day and contributors, and
+dijkstrajs 1.0.3 by its contributors. Both use the MIT license.
+Projects: https://github.com/soldair/node-qrcode and https://github.com/tcort/dijkstrajs
+Licenses: licenses/qrcode.txt and licenses/dijkstrajs.txt in the extension
+package; extension/public/licenses/ in the source tree.
