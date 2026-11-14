@@ -1,0 +1,32 @@
+{
+  "name": "credmemo",
+  "version": "2.4.1",
+  "description": "本地加密保存账号密码与 2FA 的 Chrome 扩展",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AcidEcho/CredMemo.git"
+  },
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --test tests/extension/*.test.ts",
+    "build": "node scripts/build.mjs",
+    "package": "node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.24",
+    "@types/node": "^24.0.0",
+    "@types/qrcode": "^1.5.6",
+    "qrcode": "^1.5.4",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.2"
+  },
+  "dependencies": {
+    "jsqr": "1.4.0"
+  }
+}

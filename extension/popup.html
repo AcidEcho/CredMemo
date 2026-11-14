@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-surface="popup">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8f5">
+  <meta name="description" content="CredMemo 本地加密凭证库与 2FA 验证器。">
+  <title>CredMemo · 凭证管理</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/extension.css">
+  <script type="module" src="/src/app.js"></script>
+</head>
+<body>
+  <div id="auth-screen" class="auth-screen" hidden>
+    <section class="auth-panel">
+      <div class="auth-preferences"><button class="icon-button" data-action="language" data-i18n-aria="language"><svg><use href="/static/icons.svg#globe"/></svg><span class="current-language">中文</span></button><button class="icon-button" data-action="theme" data-i18n-aria="theme"><svg><use href="/static/icons.svg#sun"/></svg></button></div>
+      <form id="auth-form" class="auth-form">
+        <div class="small-mark"><svg><use href="/static/icons.svg#lock"/></svg></div>
+        <h2 id="auth-title" data-i18n="welcome">欢迎回来</h2>
+        <p id="auth-subtitle" class="muted" data-i18n="unlockDescription">登录，打开你的私人凭证库。</p>
+        <label class="field-label" for="auth-password" data-i18n="masterPassword">主密码</label>
+        <div class="input-wrap"><svg><use href="/static/icons.svg#lock"/></svg><input id="auth-password" name="password" type="password" autocomplete="current-password" required minlength="12" maxlength="256" data-i18n-placeholder="passwordPlaceholder" placeholder="输入主密码"><button type="button" class="icon-button" data-action="toggle-password" data-target="auth-password" data-i18n-aria="showPassword"><svg><use href="/static/icons.svg#eye"/></svg></button></div>
+        <div id="confirm-field" hidden><label class="field-label" for="confirm-password" data-i18n="confirmPassword">确认主密码</label><div class="input-wrap"><svg><use href="/static/icons.svg#lock"/></svg><input id="confirm-password" type="password" autocomplete="new-password" minlength="12" maxlength="256" data-i18n-placeholder="repeatPassword" placeholder="再次输入主密码"></div><p class="field-hint" data-i18n="masterHint">请妥善保管主密码。忘记后无法解密原凭证库。</p></div>
+        <div id="auth-error" class="inline-error" role="alert" hidden></div>
+        <button type="submit" class="button primary auth-submit"><span id="auth-submit-label" data-i18n="unlock">解锁凭证库</span><svg><use href="/static/icons.svg#arrow-right"/></svg></button>
+        <div class="auth-encryption"><svg><use href="/static/icons.svg#shield"/></svg><span data-i18n="encryptionNote">凭证以 AES-256-GCM 加密存储</span></div>
+      </form>
+    </section>
+  </div>
+  <div id="app-screen" class="app-layout" hidden>
+    <div class="main-shell">
+      <header class="topbar">
+        <div class="popup-brand"><svg aria-hidden="true"><use href="/static/icons.svg#layers"/></svg><b>CredMemo</b></div>
+        <div class="topbar-actions">
+          <button class="icon-button" data-action="transfer" data-i18n-aria="dataCenter"><svg><use href="/static/icons.svg#archive"/></svg></button>
+          <button class="icon-button" data-action="language" data-i18n-aria="language"><svg><use href="/static/icons.svg#globe"/></svg></button>
+          <button class="icon-button" data-action="theme" data-i18n-aria="theme"><svg><use href="/static/icons.svg#sun"/></svg></button>
+          <button class="icon-button" data-action="settings" id="header-avatar" data-i18n-aria="settings"><svg><use href="/static/icons.svg#settings"/></svg></button>
+          <button class="icon-button" data-action="lock" data-i18n-aria="lockVault"><svg><use href="/static/icons.svg#lock"/></svg></button>
+        </div>
+      </header>
+      <main class="main-content">
+        <div class="page-heading"><h1 id="page-title" data-i18n="allCredentials">全部凭证</h1><div class="heading-actions"><button class="button scan-button" data-action="scan-page" data-i18n-aria="scanSelection"><svg><use href="/static/icons.svg#scan"/></svg><span data-i18n="scanShort">扫码</span></button><button class="button primary" data-action="new" data-i18n-aria="addCredential"><svg><use href="/static/icons.svg#plus"/></svg><span data-i18n="newShort">新建</span></button></div></div>
+        <section class="vault-section">
+          <div class="vault-toolbar">
+            <div class="filter-tabs"><button class="active" data-action="type-filter" data-type="all" data-i18n="all">全部</button><button data-action="type-filter" data-type="login" data-i18n="accounts">账号密码</button><button data-action="type-filter" data-type="totp" data-i18n="twoFactor">两步验证</button></div>
+            <button class="icon-button favorite-filter" data-action="filter" data-filter="favorite" aria-pressed="false" data-i18n-aria="favorites"><svg><use href="/static/icons.svg#star"/></svg></button>
+            <div class="search-box"><svg><use href="/static/icons.svg#search"/></svg><input id="search" data-i18n-placeholder="search" data-i18n-aria="search" type="search" autocomplete="off"><kbd>/</kbd></div>
+          </div>
+          <div class="results-line"><span id="results-count"></span><span class="muted" data-i18n="codesRefresh">动态码随时间自动刷新</span></div>
+          <div id="entries" class="entries-grid" aria-live="polite"></div><div id="empty-state" class="empty-state" hidden></div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <div id="loading-screen" class="loading-screen"><span class="brand-icon"><svg><use href="/static/icons.svg#layers"/></svg></span><span>CredMemo</span><span class="spinner"></span></div>
+  <div id="modal-root"></div><div id="drawer-root"></div><div id="toast-root" class="toast-root" role="status" aria-live="polite"></div>
+</body>
+</html>

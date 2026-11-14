@@ -1,0 +1,33 @@
+.venv/
+.runtime/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+.env.*
+!.env.example
+test-results/
+node_modules/
+dist/
+release/
+
+# 已停用的服务端及其本地配置不属于当前插件发行源码。
+/app/
+/manage.py
+/compose.yaml
+/Dockerfile
+/.dockerignore
+/requirements.txt
+/requirements-dev.txt
+/tests/conftest.py
+/tests/test_vault.py
+/tests/browser_acceptance.py
+
+# 凭证、备份及本地运行数据不能进入公开仓库。
+*.credmemo
+*.db
+*.sqlite
+*.sqlite3
+*.log
+coverage/
+.DS_Store
