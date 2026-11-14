@@ -24,7 +24,7 @@ def run():
             ctx = p.chromium.launch_persistent_context(
                 profile, executable_path=CHROME, headless=True, accept_downloads=True,
                 args=['--no-sandbox', f'--disable-extensions-except={ROOT / "dist"}', f'--load-extension={ROOT / "dist"}'],
-                viewport={'width': 390, 'height': 600}, locale='zh-CN')
+                viewport={'width': 360, 'height': 600}, locale='zh-CN')
             ctx.set_default_timeout(12000)
             ctx.on('page', lambda tab: tab.on('pageerror', lambda error: errors.append(str(error))))
             ctx.on('request', lambda request: external.append(request.url) if request.url.startswith(('https://', 'http://')) else None)
@@ -78,45 +78,36 @@ def run():
         page.locator('.heading-actions [data-action=new]').click()
         page.wait_for_timeout(50)
         expect(page.locator('#entry-title')).to_be_focused()
-        expect(page.locator('#entry-form input:visible:not([type=radio]):not([type=file])')).to_have_count(4)
+        expect(page.locator('#entry-form input:visible:not([type=radio]):not([type=file])')).to_have_count(5)
         expect(page.locator('#entry-form input[type=radio], .filter-tabs')).to_have_count(0)
         expect(page.locator('#entry-group')).to_have_count(0)
         page.locator('#entry-title').fill('示例邮箱')
-        expect(page.locator('#entry-url')).to_be_hidden()
-        page.locator('#entry-options summary').click()
+        expect(page.locator('#entry-url')).to_be_visible()
         page.locator('#entry-url').fill('https://login.example.test/login')
         first = page.locator('.login-item').first
         expect(page.locator('.login-options, [data-action=generate]')).to_have_count(0)
         expect(first.locator('.field-label').first).to_have_text('账号')
         first.locator('[data-field=username]').fill('demo@example.test')
         first.locator('[data-field=password]').fill(credential_password)
-        page.locator('[data-action=add-login]').click()
-        second = page.locator('.login-item').nth(1)
-        second.locator('[data-field=username]').fill('backup@example.test')
-        second.locator('[data-field=password]').fill(str(uuid.uuid4()))
-        for index in range(2):
-            if index:
-                page.locator('[data-action=add-totp]').click()
-            token = page.locator('.token-item').last
-            expect(token.locator('.advanced-options')).to_be_hidden()
-            token.locator('[data-field=secret]').fill(PUBLIC_SECRET)
+        page.locator('.token-item [data-field=secret]').fill(PUBLIC_SECRET)
         page.locator('#entry-notes').fill('仅供界面验收的虚构资料。')
         page.locator('button[form=entry-form][type=submit]').click()
         expect(page.locator('.entry-card')).to_have_count(1)
         expect(page.locator('.totp-code')).to_have_text(re.compile(r'\d{3} \d{3}'))
         first_id = request('list')['entries'][0]['id']
         legacy = request('get', {'id': first_id})
+        legacy['logins'].append({'label': '', 'username': 'backup@example.test', 'password': str(uuid.uuid4())})
+        legacy['totps'].append(dict(legacy['totps'][0]))
         for login, label in zip(legacy['logins'], ['主账号', '备用账号']):
             login['label'] = label
         for token, label in zip(legacy['totps'], ['邮箱验证器', '备用验证器']):
             token['label'] = label
         request('save', {'id': first_id, 'version': legacy['version'], 'entry': legacy})
-        print('PASS: UI saves multiple accounts and 2FA', flush=True)
+        print('PASS: simplified UI saves credentials; legacy multiple accounts and 2FA remain editable', flush=True)
 
         for title, username in [('开发平台', 'developer@example.test'), ('演示网站', 'hello@example.test')]:
             page.locator('.heading-actions [data-action=new]').click()
             page.locator('#entry-title').fill(title)
-            page.locator('#entry-options summary').click()
             page.locator('#entry-url').fill('https://example.test')
             page.locator('.login-item [data-field=username]').fill(username)
             page.locator('.login-item [data-field=password]').fill(str(uuid.uuid4()))
@@ -127,7 +118,7 @@ def run():
         expect(page.locator('#drawer-root .detail-group')).to_have_count(4)
         expect(page.locator('#detail-password-0')).to_have_value(credential_password)
         page.locator('#drawer-root [data-action=edit]').click()
-        page.locator('#entry-options summary').click()
+        expect(page.locator('#entry-form')).to_have_attribute('data-id', first_id)
         page.locator('#entry-notes').fill('已编辑的虚构资料。')
         page.locator('button[form=entry-form][type=submit]').click()
         expect(page.locator('#modal-root')).to_be_empty()
@@ -176,6 +167,11 @@ def run():
         expect(page.locator('#page-title')).to_have_text('All credentials')
         assert page.locator('.main-content').evaluate('node=>node.scrollWidth===node.clientWidth')
         page.screenshot(path=str(ARTIFACTS / 'popup-dark.png'))
+        page.locator('.heading-actions [data-action=new]').click()
+        expect(page.locator('.token-item [data-field=secret]')).to_have_attribute('placeholder', 'Enter a 2FA secret')
+        assert page.locator('.modal-body').evaluate('node=>node.scrollWidth<=node.clientWidth&&node.scrollHeight<=node.clientHeight')
+        page.screenshot(path=str(ARTIFACTS / 'editor-dark-en.png'), animations='disabled')
+        close_modal()
         page.locator('#header-avatar').click()
         page.locator('#language-select').select_option('zh')
         page.locator('#theme-select').select_option('light')
@@ -189,10 +185,10 @@ def run():
         print('PASS: visible TOTP refreshes across real time boundary', flush=True)
 
         awaitable_popup = ctx.new_page()
-        awaitable_popup.set_viewport_size({'width': 390, 'height': 600})
+        awaitable_popup.set_viewport_size({'width': 360, 'height': 600})
         awaitable_popup.goto(base + 'popup.html')
         expect(awaitable_popup.locator('.entry-card')).to_have_count(3)
-        assert awaitable_popup.evaluate('document.documentElement.scrollWidth') == 390
+        assert awaitable_popup.evaluate('document.documentElement.scrollWidth') == 360
         awaitable_popup.screenshot(path=str(ARTIFACTS / 'popup.png'), full_page=True)
         awaitable_popup.close()
         page.bring_to_front()

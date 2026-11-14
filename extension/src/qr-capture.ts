@@ -7,6 +7,7 @@ export interface PageScan {
   tabId: number;
   windowId: number;
   url: string;
+  editor?: boolean;
 }
 
 async function checkPage(scan: PageScan) {

@@ -1,5 +1,4 @@
 import { I18N } from './i18n.js';
-import { readQrImage } from './qr.ts';
 import { normalizeTotp } from './totp.ts';
 (() => {
   'use strict';
@@ -66,8 +65,9 @@ import { normalizeTotp } from './totp.ts';
     $('#auth-password').value='';$('#confirm-password').value='';
     target=await request('target');
     const scanned=await request('qr-result');
-    if(scanned){state.filter='all';$('#search').value='';toast(t('qrSaved'));}
+    if(scanned&&!scanned.editor){state.filter='all';$('#search').value='';toast(t('qrSaved'));}
     await loadEntries();
+    if(scanned?.editor){await editEntry(scanned.editor.id,scanned.editor);toast(t(scanned.outcome==='recognized'?'qrRecognized':'qrCancelled'));}
   }
   function matchesSite(entry){try{return !!target&&new URL(entry.url).origin===target.origin;}catch{return false;}}
   async function loadEntries() {
@@ -154,49 +154,29 @@ import { normalizeTotp } from './totp.ts';
   }
   function totpFields(item={},primary=false) {
     const n=++itemSequence,custom=(item.digits??6)!==6||(item.period??30)!==30||(item.algorithm??'SHA1')!=='SHA1';
-    return `<div class="form-item token-item${primary?' primary-item':''}">${primary?'':iconButton('close','remove-item','removeItem','','remove-item')}<label class="field-label" for="token-secret-${n}">${escape(t('totpSecret'))}</label><div class="input-wrap"><input id="token-secret-${n}" data-field="secret" type="password" value="${escape(item.secret||'')}" maxlength="4096" autocomplete="off" placeholder="${escape(t('totpSecretPlaceholder'))}">${iconButton('eye','toggle-password','showPassword',`data-target="token-secret-${n}"`)}</div>
+    return `<div class="form-item token-item${primary?' primary-item':''}">${primary?'':iconButton('close','remove-item','removeItem','','remove-item')}<label class="field-label" for="token-secret-${n}">${escape(t('totpSecret'))}</label><div class="input-wrap"><input id="token-secret-${n}" data-field="secret" type="password" value="${escape(item.secret||'')}" maxlength="4096" autocomplete="off" placeholder="${escape(t('totpSecretPlaceholder'))}">${iconButton('scan','scan-entry','scanSelection')}${iconButton('eye','toggle-password','showPassword',`data-target="token-secret-${n}"`)}</div>
       <input type="hidden" data-field="label" value="${escape(item.label||'')}"><details class="advanced-options" ${custom?'':'hidden'}><summary>${escape(t('advanced'))}</summary><div class="token-options">${[['digits',[6,8]],['period',[15,30,60]],['algorithm',['SHA1','SHA256','SHA512']]].map(([name,options])=>`<label for="token-${name}-${n}">${escape(t(name))}<select class="select" id="token-${name}-${n}" data-field="${name}">${options.map(value=>`<option value="${value}" ${String(item[name]??(name==='digits'?6:name==='period'?30:'SHA1'))===String(value)?'selected':''}>${value}${name==='period'?'s':''}</option>`).join('')}</select></label>`).join('')}</div></details></div>`;
   }
-  function applyQrToken(token) {
-    const form=$('#entry-form');if(!form)return;
-    const empty=$$('.token-item',form).find(node=>!$('[data-field=secret]',node).value.trim());
-    if(empty)empty.outerHTML=totpFields(token,empty.classList.contains('primary-item'));
-    else {
-      if($$('.token-item',form).length>=30)throw new Error(t('invalid_input'));
-      $('#token-items').insertAdjacentHTML('beforeend',totpFields(token));
-    }
-    if(!$('#entry-title').value.trim())$('#entry-title').value=token.label.slice(0,150);
-    $('#form-error').hidden=true;
-  }
-  async function importQrImage(input) {
-    const file=input.files[0],form=$('#entry-form'),generation=state.generation;
-    input.value='';if(!file||!form)return;
-    const status=$('#qr-status');status.textContent=t('qrScanning');input.disabled=true;
-    try {
-      const token=await readQrImage(file);
-      if(generation!==state.generation||!form.isConnected)return;
-      applyQrToken(token);status.textContent=t('qrRecognized');
-    }catch(error){
-      if(generation!==state.generation||!form.isConnected)return;
-      status.textContent='';$('#form-error').textContent=t(error.code||'qr_image_invalid');$('#form-error').hidden=false;
-    }finally{if(input.isConnected)input.disabled=false;}
-  }
-  async function editEntry(id) {
-    const entry=id?await request('get',{id}):null;
+  async function editEntry(id,draft=null) {
+    const entry=draft?{...draft.entry,version:draft.version}:id?await request('get',{id}):null;
     closeDrawer();
-    const body=`<form id="entry-form" data-id="${id||''}" data-version="${entry?.version||''}">
+    const body=`<form id="entry-form" data-id="${id||''}" data-version="${entry?.version||''}" data-favorite="${!!entry?.favorite}">
       ${field('title','entry-title',entry?.title,'titlePlaceholder','text','required maxlength="150"')}
+      ${field('website','entry-url',entry?.url,'websitePlaceholder','text','maxlength="2000"')}
       <section><div id="login-items">${(entry?.logins.length?entry.logins:[{}]).map((item,index)=>loginFields(item,index===0)).join('')}</div></section>
       <section><div id="token-items">${(entry?.totps.length?entry.totps:[{}]).map((item,index)=>totpFields(item,index===0)).join('')}</div></section>
       <label class="field-label" for="entry-notes">${escape(t('notes'))}</label><textarea id="entry-notes" class="input" rows="2" maxlength="10000" placeholder="${escape(t('notesPlaceholder'))}">${escape(entry?.notes||'')}</textarea>
-      <details class="entry-options" id="entry-options"><summary>${escape(t('moreOptions'))}</summary>${field('website','entry-url',entry?.url,'websitePlaceholder','text','maxlength="2000"')}
-      <div class="qr-import"><button type="button" class="text-button" data-action="add-login">${icon('plus')}${escape(t('addLogin'))}</button><button type="button" class="text-button" data-action="add-totp">${icon('plus')}${escape(t('addTotp'))}</button><label class="text-button qr-image-label">${icon('scan')}<span>${escape(t('selectQrImage'))}</span><input id="qr-image" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-label="${escape(t('selectQrImage'))}"></label><span id="qr-status" role="status"></span></div><label class="form-favorite"><input type="checkbox" id="entry-favorite" ${entry?.favorite?'checked':''}>${escape(t('markFavorite'))}</label></details><div id="form-error" class="inline-error" role="alert" hidden></div></form>`;
+      <div id="form-error" class="inline-error" role="alert" hidden></div></form>`;
     openModal(t(id?'editCredential':'addCredential'),body,`<button class="button secondary" data-action="close-modal">${escape(t('cancel'))}</button><button type="submit" form="entry-form" class="button primary">${escape(t('save'))}</button>`,'editor');
     $('#entry-title').focus();
   }
-  async function saveEntry(form) {
+  function editorValues(form) {
     const readItems=selector=>$$(selector,form).map(node=>Object.fromEntries($$('[data-field]',node).map(input=>[input.dataset.field,['digits','period'].includes(input.dataset.field)?Number(input.value):input.value])));
-    const data={title:$('#entry-title').value.trim(),url:$('#entry-url').value.trim(),notes:$('#entry-notes').value,favorite:$('#entry-favorite').checked,logins:readItems('.login-item').filter(item=>item.username.trim()||item.password||item.label.trim()),totps:readItems('.token-item').filter(item=>item.secret.trim()||item.label.trim())};
+    return {title:$('#entry-title').value,url:$('#entry-url').value,notes:$('#entry-notes').value,favorite:form.dataset.favorite==='true',logins:readItems('.login-item'),totps:readItems('.token-item')};
+  }
+  async function saveEntry(form) {
+    const data=editorValues(form);
+    data.title=data.title.trim();data.url=data.url.trim();data.logins=data.logins.filter(item=>item.username.trim()||item.password||item.label.trim());data.totps=data.totps.filter(item=>item.secret.trim()||item.label.trim());
     if(!data.logins.length&&!data.totps.length)throw new Error(t('credential_required'));
     const id=form.dataset.id;
     await request('save',{id:id||undefined,entry:data,version:id?Number(form.dataset.version):undefined});
@@ -242,10 +222,13 @@ import { normalizeTotp } from './totp.ts';
   async function lockVault() {try{await request('lock');}catch{}finally{showAuth();}}
   async function action(button) {
     const {action,id,index='0'}=button.dataset;
-    if(action==='scan-page'){
+    if(action==='scan-page'||action==='scan-entry'){
+      const form=action==='scan-entry'?$('#entry-form'):null;
+      const editor=form?{id:form.dataset.id,version:Number(form.dataset.version||0),entry:editorValues(form),tokenIndex:$$('.token-item',form).indexOf(button.closest('.token-item'))}:undefined;
       button.disabled=true;
       try{
-        await request('qr-start',{labels:{hint:t('pageScanHint'),cancel:t('cancel'),small:t('qr_selection_small'),scanning:t('qrScanning'),saved:t('qrSaved'),failed:t('qr_capture_failed'),errors:Object.fromEntries(['qr_not_found','qr_not_totp','invalid_totp','totp_only','qr_page_changed','unauthorized','forbidden','too_large'].map(code=>[code,t(code)]))}});window.close();
+        const {id:windowId}=await chrome.windows.getCurrent();
+        await request('qr-start',{windowId,editor,labels:{hint:t('pageScanHint'),cancel:t('cancel'),small:t('qr_selection_small'),scanning:t('qrScanning'),saved:t(editor?'qrRecognized':'qrSaved'),failed:t('qr_capture_failed'),errors:Object.fromEntries(['qr_not_found','qr_not_totp','invalid_totp','totp_only','qr_page_changed','unauthorized','forbidden','too_large'].map(code=>[code,t(code)]))}});window.close();
       }finally{if(button.isConnected)button.disabled=false;}
       return;
     }
@@ -269,8 +252,6 @@ import { normalizeTotp } from './totp.ts';
     if(action==='close-drawer')return closeDrawer();
     if(action==='lock')return lockVault();
     if(action==='reload')return loadEntries();
-    if(action==='add-login'){if($$('.login-item').length>=30)throw new Error(t('invalid_input'));$('#login-items').insertAdjacentHTML('beforeend',loginFields());return;}
-    if(action==='add-totp'){if($$('.token-item').length>=30)throw new Error(t('invalid_input'));$('#token-items').insertAdjacentHTML('beforeend',totpFields());$('#token-items .token-item:last-child input').focus();return;}
     if(action==='remove-item'){const item=button.closest('.form-item');if(!item.classList.contains('primary-item'))item.remove();return;}
     if(action==='copy-code'){const token=state.codes[id]?.[Number(index)];if(!token||token.expires_at*1000<=Date.now()+state.offset){await refreshCodes();return;}return copy(token.code);}
     if(action==='copy-username')return copy(state.entries.find(e=>e.id===id)?.logins[Number(index)]?.username||'');
@@ -306,7 +287,6 @@ import { normalizeTotp } from './totp.ts';
   });
   document.addEventListener('change',async event=>{
     const input=event.target;
-    if(input.id==='qr-image')return importQrImage(input);
     if(input.matches('.token-item [data-field=secret]')&&/^otpauth:\/\//i.test(input.value.trim())){
       // 配置链接优先使用自身参数，无效内容留给保存时的校验处理。
       try {

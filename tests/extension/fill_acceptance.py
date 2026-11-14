@@ -108,7 +108,7 @@ def run():
 
         popup = open_popup()
         dimensions = popup.evaluate('({viewport:innerWidth,html:document.documentElement.scrollWidth,body:document.body.scrollWidth})')
-        assert dimensions == {'viewport': 390, 'html': 390, 'body': 390}, dimensions
+        assert dimensions == {'viewport': 360, 'html': 360, 'body': 360}, dimensions
         popup.wait('!document.querySelector("[data-action=copy-code]").disabled')
         # 无头浏览器打开原生弹窗后可能没有焦点窗口，按最近浏览器窗口定位测试页。
         target = client.evaluate('chrome.windows.getLastFocused().then(window=>chrome.tabs.query({active:true,windowId:window.id})).then(([tab])=>({id:tab.id,origin:new URL(tab.url).origin}))')
@@ -132,31 +132,32 @@ def run():
         assert site.evaluate('window.inputs') == 2
         screenshot = ROOT / 'release' / 'screenshots' / 'popup-site.png'
         screenshot.parent.mkdir(parents=True, exist_ok=True)
+        popup.wait('!document.querySelector("#toast-root").textContent')
         screenshot.write_bytes(base64.b64decode(popup.send('Page.captureScreenshot', {'format': 'png'})['data']))
         print('PASS: real toolbar popup without site banner, account selection, native field events, no auto-submit', flush=True)
 
         tabs_before = client.evaluate('chrome.tabs.query({}).then(tabs=>tabs.map(tab=>tab.id).sort())')
         popup.evaluate('document.querySelector(".heading-actions [data-action=new]").click()')
         popup.wait('!!document.querySelector("#entry-form")')
-        assert popup.evaluate('document.querySelector(".modal").getBoundingClientRect().width<=336')
+        assert popup.evaluate('document.querySelector(".modal").getBoundingClientRect().width<=328')
         assert popup.evaluate('document.querySelector(".modal").getBoundingClientRect().height<=430')
         assert popup.evaluate('document.querySelector(".modal-body").scrollWidth<=document.querySelector(".modal-body").clientWidth')
         assert popup.evaluate('document.querySelector(".modal-body").scrollHeight<=document.querySelector(".modal-body").clientHeight')
         assert popup.evaluate('document.querySelectorAll(".primary-item .remove-item").length===0')
         assert popup.evaluate('document.querySelector(".login-item>.field-label").textContent==="账号"')
         assert popup.evaluate('!document.querySelector("[data-action=generate],.login-options")')
-        assert popup.evaluate('(()=>{const body=document.querySelector(".modal-body").getBoundingClientRect();let bottom=body.top;return ["#entry-title",".login-item [data-field=username]",".login-item [data-field=password]",".token-item [data-field=secret]","#entry-notes"].every(selector=>{const rect=document.querySelector(selector).getBoundingClientRect(),valid=rect.top>=bottom&&rect.bottom<=body.bottom;bottom=rect.bottom;return valid})})()')
+        assert popup.evaluate('(()=>{const body=document.querySelector(".modal-body").getBoundingClientRect();let bottom=body.top;return ["#entry-title","#entry-url",".login-item [data-field=username]",".login-item [data-field=password]",".token-item [data-field=secret]","#entry-notes"].every(selector=>{const rect=document.querySelector(selector).getBoundingClientRect(),valid=rect.top>=bottom&&rect.bottom<=body.bottom;bottom=rect.bottom;return valid})})()')
         assert popup.evaluate('document.querySelectorAll("#entry-form input[type=radio],.filter-tabs").length===0')
         assert popup.evaluate('(()=>{const field=document.querySelector(".token-item [data-field=secret]").getBoundingClientRect(),body=document.querySelector(".modal-body").getBoundingClientRect();return field.top>=body.top&&field.bottom<=body.bottom})()')
         popup.evaluate('document.querySelector("#entry-title").value="Popup 2FA fixture";document.querySelector(".token-item [data-field=secret]").value="GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"')
         popup.evaluate('document.querySelector("#entry-notes").value="Synthetic note"')
         assert popup.evaluate('(()=>{const rect=document.querySelector("button[form=entry-form]").getBoundingClientRect();return rect.top>=0&&rect.bottom<=innerHeight})()')
         (screenshot.parent / 'popup-editor.png').write_bytes(base64.b64decode(popup.send('Page.captureScreenshot', {'format': 'png'})['data']))
-        popup.evaluate('document.querySelector("#entry-options > summary").click()')
+        assert popup.evaluate('!document.querySelector("#entry-options,[data-action=add-login],[data-action=add-totp],#qr-image")')
         assert popup.evaluate('document.querySelector(".advanced-options").hidden')
         assert popup.evaluate('!document.querySelector(".login-options,[data-action=generate]")')
-        (screenshot.parent / 'popup-more-options.png').write_bytes(base64.b64decode(popup.send('Page.captureScreenshot', {'format': 'png'})['data']))
-        popup.evaluate('document.querySelector("#entry-options > summary").click()')
+        assert popup.evaluate('document.querySelector(".token-item [data-field=secret]").placeholder==="输入 2FA 密钥"')
+        assert popup.evaluate('!!document.querySelector(".token-item [data-action=scan-entry]")')
         popup.evaluate('document.querySelector("button[form=entry-form]").click()')
         popup.wait('!document.querySelector("#entry-form")&&document.querySelectorAll(".entry-card").length===2')
         created = next(item for item in request('list')['entries'] if item['title'] == 'Popup 2FA fixture')

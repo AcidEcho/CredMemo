@@ -66,8 +66,13 @@ def run():
         assert PUBLIC_SECRET not in json.dumps(encrypted)
         print(f'PASS: released {previous_version} stores encrypted credentials with a long legacy master password; fresh install is unpinned', flush=True)
 
-        # 在扩展管理页重新加载，等待浏览器确认新版已启用后再访问凭证库。
-        shutil.copytree(ROOT / 'dist', installed, dirs_exist_ok=True)
+        # 从发行 ZIP 覆盖原安装位置，避免新目录前缀造成嵌套安装。
+        with zipfile.ZipFile(ROOT / f'release/CredMemo-{expected_version}.zip') as archive:
+            assert archive.testzip() is None
+            assert {name.split('/')[0] for name in archive.namelist()} == {'CredMemo'}
+            unpacked = Path(folder) / 'download'
+            archive.extractall(unpacked)
+        shutil.copytree(unpacked / 'CredMemo', installed, dirs_exist_ok=True)
         manager = ctx.new_page()
         manager.goto('chrome://extensions/')
         developer_mode = manager.locator('extensions-toolbar #devMode')

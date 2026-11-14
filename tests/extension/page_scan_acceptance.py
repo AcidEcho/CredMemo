@@ -47,10 +47,11 @@ def run():
         cdp=ctx.browser.new_browser_cdp_session()
         source_target=ctx.new_cdp_session(client).send('Target.getTargetInfo')['targetInfo']['targetId']
 
-        def popup():
-            site.bring_to_front()
-            tab=next(item for item in cdp.send('Target.getTargets',{'filter':[{}]})['targetInfos'] if item['type']=='tab' and item['url']==site.url)
-            cdp.send('Extensions.triggerAction',{'id':base.split('/')[2],'targetId':tab['targetId']})
+        def popup(trigger=True):
+            if trigger:
+                site.bring_to_front()
+                tab=next(item for item in cdp.send('Target.getTargets',{'filter':[{}]})['targetInfos'] if item['type']=='tab' and item['url']==site.url)
+                cdp.send('Extensions.triggerAction',{'id':base.split('/')[2],'targetId':tab['targetId']})
             for _ in range(100):
                 target=next((item for item in cdp.send('Target.getTargets')['targetInfos'] if item['url']==base+'popup.html' and item['targetId']!=source_target),None)
                 if target:break
@@ -112,18 +113,92 @@ def run():
         assert target
         view=Popup(cdp,client,target['targetId'])
         view.wait('document.querySelector("[data-action=copy-code]")?.disabled===false&&!document.querySelector(".filter-tabs")')
-        assert view.evaluate('innerWidth===390&&document.querySelector(".main-content").scrollWidth===document.querySelector(".main-content").clientWidth')
+        assert view.evaluate('innerWidth===360&&document.querySelector(".main-content").scrollWidth===document.querySelector(".main-content").clientWidth')
         (shots/'page-result.png').write_bytes(base64.b64decode(view.send('Page.captureScreenshot',{'format':'png'})['data']))
         assert PUBLIC_SECRET not in json.dumps(client.evaluate('chrome.storage.local.get(null)'))
         print('PASS: reversed selection at 2x scale auto-saves encrypted TOTP and returns to the unified list',flush=True)
 
+        view.evaluate('document.querySelector(".heading-actions [data-action=new]").click()')
+        view.wait('!!document.querySelector("#entry-form")')
+        password=str(uuid.uuid4())
+        fields={'#entry-title':'扫码回填测试','#entry-url':'https://qr.example.test/login',
+            '.login-item [data-field=username]':'fixture@example.test',
+            '.login-item [data-field=password]':password,'#entry-notes':'未保存的备注'}
+
+        def values(view):
+            return view.evaluate('Object.fromEntries('+json.dumps(list(fields))+'.map(selector=>[selector,document.querySelector(selector).value]))')
+
+        view.evaluate('Object.entries('+json.dumps(fields)+').forEach(([selector,value])=>document.querySelector(selector).value=value)')
+        view.evaluate('document.querySelector("[data-action=scan-entry]").click()')
+        expect(site.locator('#credmemo-qr-selection')).to_have_attribute('data-state','selecting')
+        # 草稿跨后台休眠仍可恢复，且不进入网页或持久存储。
+        worker_target=next(item for item in cdp.send('Target.getTargets')['targetInfos'] if item['type']=='service_worker' and item['url']==base+'background.js')
+        cdp.send('Target.closeTarget',{'targetId':worker_target['targetId']})
+        assert password not in site.content()
+        assert password not in json.dumps(client.evaluate('chrome.storage.local.get(null)'))
+        drag(20,120,30,30)
+        expect(site.locator('#credmemo-qr-selection')).to_have_attribute('aria-label',re.compile('未找到二维码'))
+        assert len(request('list')['entries'])==1
+        site.keyboard.press('Escape')
+        view=popup(trigger=False);view.wait('!!document.querySelector("#entry-form")')
+        assert values(view)==fields
+        assert view.evaluate('document.querySelector(".token-item [data-field=secret]").value')==''
+        assert len(request('list')['entries'])==1
+        print('PASS: editor scan survives worker restart; blank regions and cancellation restore all unsaved fields without saving',flush=True)
+
+        view.evaluate('document.querySelector("[data-action=scan-entry]").click()')
+        expect(site.locator('#credmemo-qr-selection')).to_have_attribute('data-state','selecting')
+        client.wait_for_timeout(600)
+        drag(rect['x'],rect['y'],rect['width'],rect['height'])
+        view=popup(trigger=False);view.wait('!!document.querySelector("#entry-form")')
+        assert values(view)==fields
+        assert view.evaluate('document.querySelector(".token-item [data-field=secret]").value')==PUBLIC_SECRET
+        assert view.evaluate('Object.fromEntries([...document.querySelectorAll(".token-item select")].map(node=>[node.dataset.field,node.value]))')=={'digits':'8','period':'60','algorithm':'SHA256'}
+        assert len(request('list')['entries'])==1
+        view.evaluate('document.querySelector("button[form=entry-form]").click()')
+        view.wait('!document.querySelector("#entry-form")')
+        created=next(entry for entry in request('list')['entries'] if entry['title']==fields['#entry-title'])
+        saved_draft=request('get',{'id':created['id']})
+        assert saved_draft['logins'][0]['password']==password
+        assert saved_draft['totps'][0]['secret']==PUBLIC_SECRET and saved_draft['notes']==fields['#entry-notes']
+        view.evaluate('document.querySelector(\'[data-entry="'+created['id']+'"] [data-action=edit]\').click()')
+        view.wait('!!document.querySelector("#entry-form")')
+        view.evaluate('document.querySelector("[data-action=scan-entry]").click()')
+        expect(site.locator('#credmemo-qr-selection')).to_have_attribute('data-state','selecting')
+        client.wait_for_timeout(600)
+        drag(rect['x'],rect['y'],rect['width'],rect['height'])
+        view=popup(trigger=False);view.wait('!!document.querySelector("#entry-form")')
+        assert values(view)==fields
+        view.evaluate('document.querySelector("button[form=entry-form]").click()')
+        view.wait('!document.querySelector("#entry-form")')
+        assert len(request('list')['entries'])==2
+        assert request('get',{'id':created['id']})['version']==saved_draft['version']+1
+        assert password not in json.dumps(client.evaluate('chrome.storage.local.get(null)'))
+        print('PASS: recognized QR fills the original form and parameters; only Save creates or updates the original credential',flush=True)
+
+        view.evaluate('document.querySelector(".heading-actions [data-action=new]").click()')
+        view.wait('!!document.querySelector("#entry-form")')
+        view.evaluate('document.querySelector("[data-action=scan-entry]").click()')
+        expect(site.locator('#credmemo-qr-selection')).to_have_attribute('data-state','selecting')
+        request('lock');expect(site.locator('#credmemo-qr-selection')).to_have_count(0)
+        client.wait_for_function('async()=>{const data=await chrome.storage.session.get(null);return !data["credmemo-qr-result"]&&!data["credmemo-qr-scan"]}')
+        assert client.evaluate('chrome.runtime.sendMessage({type:"credmemo",action:"qr-result",args:{}})')=={'ok':False,'error':'unauthorized'}
+        request('unlock',{'password':master})
+        print('PASS: locking clears the editor draft and blocks QR result access',flush=True)
+
         overlay=start();request('lock');expect(overlay).to_have_count(0)
         request('unlock',{'password':master})
         overlay=start();site.goto('https://qr.example.test/changed');expect(overlay).to_have_count(0)
-        assert len(request('list')['entries'])==1
+        assert len(request('list')['entries'])==2
         site.goto('chrome://version')
         view=popup();view.evaluate('document.querySelector("[data-action=scan-page]").click()')
         view.wait('document.querySelector("#toast-root").textContent.includes("普通网页")')
+        view.evaluate('document.querySelector(".heading-actions [data-action=new]").click()')
+        view.wait('!!document.querySelector("#entry-form")')
+        view.evaluate('document.querySelector("#entry-title").value="Protected page draft";document.querySelector("[data-action=scan-entry]").click()')
+        view.wait('document.querySelector("#toast-root").textContent.includes("普通网页")')
+        assert view.evaluate('document.querySelector("#entry-title").value')=='Protected page draft'
+        assert not client.evaluate('chrome.storage.session.get("credmemo-qr-result").then(data=>data["credmemo-qr-result"])')
         assert client.evaluate('chrome.tabs.query({}).then(tabs=>tabs.length)')==before_tabs
         assert 'desktopCapture' not in client.evaluate('chrome.runtime.getManifest().permissions')
         assert client.evaluate('typeof chrome.action.setUserSettings')=='undefined'

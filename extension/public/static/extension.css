@@ -1,13 +1,8 @@
-.qr-import{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:5px 0 8px}
-.qr-import [role="status"]{font-size:10px;color:var(--green)}
-.qr-image-label{position:relative;overflow:hidden}
-.qr-image-label input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
-.qr-image-label:focus-within{outline:2px solid var(--green);outline-offset:2px}
 .login-choice{display:flex;align-items:center;gap:12px;width:100%;padding:12px;margin-top:10px;border:1px solid var(--border);border-radius:8px;font-size:12px;text-align:left;background:var(--bg)}
 .login-choice span{flex:1;overflow-wrap:anywhere}
 .login-choice svg{width:17px;height:17px;color:var(--green)}
 .fill-button{margin-left:auto;background:var(--green-wash);border-radius:4px;padding:3px 10px}
-html[data-surface="popup"]{width:390px;height:560px;overflow:hidden}
+html[data-surface="popup"]{width:360px;height:560px;overflow:hidden}
 html[data-surface="popup"][data-view="unlock"]{height:350px}
 html[data-surface="popup"][data-view="setup"]{height:465px}
 html[data-surface="popup"] body{width:100%;height:100%;max-height:100dvh;overflow:hidden}
@@ -23,10 +18,10 @@ html[data-surface="popup"] .auth-submit{margin-top:18px}
 html[data-surface="popup"] .field-label{margin-top:10px;font-size:11px}
 html[data-surface="popup"] .app-layout{min-height:0;height:100%}
 html[data-surface="popup"] .main-shell{margin:0;width:100%;height:100%;display:flex;flex-direction:column}
-html[data-surface="popup"] .topbar{flex-shrink:0;height:53px;padding:0 17px;position:sticky;top:0;z-index:15}
+html[data-surface="popup"] .topbar{flex-shrink:0;height:53px;padding:0 14px;position:sticky;top:0;z-index:15}
 html[data-surface="popup"] .topbar-actions{gap:2px}
 html[data-surface="popup"] .topbar-actions .icon-button{min-width:29px}
-html[data-surface="popup"] .main-content{padding:17px;width:100%;flex:1;min-height:0;overflow-y:auto}
+html[data-surface="popup"] .main-content{padding:14px;width:100%;flex:1;min-height:0;overflow-y:auto}
 html[data-surface="popup"] .page-heading{flex-wrap:nowrap;align-items:center;gap:8px;margin-bottom:16px}
 html[data-surface="popup"] .page-heading h1{font-size:20px;margin:0}
 html[data-surface="popup"] .heading-actions{width:auto;display:flex;gap:7px}
@@ -61,7 +56,7 @@ html[data-surface="popup"] .empty-state h2{font-size:14px}
 html[data-surface="popup"] .empty-state p{font-size:11px}
 html[data-surface="popup"] .empty-state>.empty-icon{width:42px;height:42px;border-radius:12px;margin-bottom:12px}
 html[data-surface="popup"] .modal-overlay{padding:16px}
-html[data-surface="popup"] .modal{width:100%;max-width:336px;max-height:min(430px,calc(100dvh - 32px));border-radius:12px}
+html[data-surface="popup"] .modal{width:100%;max-width:328px;max-height:min(430px,calc(100dvh - 32px));border-radius:12px}
 html[data-surface="popup"] .modal.preferences{max-width:324px}
 html[data-surface="popup"] .modal-header{flex-shrink:0;padding:12px 15px 10px}
 html[data-surface="popup"] .modal-header h2{font-size:15px}
@@ -83,17 +78,11 @@ html[data-surface="popup"] .editor #entry-form>.field-label:first-child{margin-t
 html[data-surface="popup"] .editor .input,html[data-surface="popup"] .editor .input-wrap{min-height:30px;height:30px}
 html[data-surface="popup"] .editor .input{padding:4px 10px}
 html[data-surface="popup"] .editor .input-wrap input{padding:4px 0}
-html[data-surface="popup"] .editor #entry-notes{height:44px;min-height:44px;line-height:1.4;resize:vertical}
+html[data-surface="popup"] .editor #entry-notes{height:36px;min-height:36px;line-height:1.4;resize:vertical}
 html[data-surface="popup"] .editor .modal-header{padding:9px 14px 8px}
 html[data-surface="popup"] .editor .modal-header .icon-button{min-width:26px;height:26px}
 html[data-surface="popup"] .editor .modal-body{padding:8px 15px 10px}
 html[data-surface="popup"] .editor .modal-footer{padding:8px 15px}
-html[data-surface="popup"] .editor .entry-options{margin-top:8px;padding-top:6px}
-html[data-surface="popup"] .editor .entry-options>summary{margin-top:0}
-.entry-options summary{cursor:pointer;font-size:11px;color:var(--muted);margin-top:10px}
-.entry-options{border-top:1px solid var(--border);padding-top:1px;margin-top:12px}
-html[data-surface="popup"] .entry-options textarea{min-height:60px;resize:vertical}
-html[data-surface="popup"] .form-favorite{margin-top:10px;font-size:11px}
 html[data-surface="popup"] .transfer-tabs{margin:-12px -15px 12px;padding:0 12px;gap:6px}
 html[data-surface="popup"] .transfer-tabs button{padding:9px 12px;font-size:11px}
 html[data-surface="popup"] .notice{padding:9px 10px;margin:0 0 12px;font-size:10px;line-height:1.6}
