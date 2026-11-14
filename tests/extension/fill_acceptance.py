@@ -56,7 +56,7 @@ class Popup:
 def run():
     with sync_playwright() as p, tempfile.TemporaryDirectory(prefix='credmemo-fill-') as profile:
         ctx = p.chromium.launch_persistent_context(profile, executable_path=CHROME, headless=True,
-            args=['--no-sandbox', '--enable-unsafe-extension-debugging', f'--disable-extensions-except={ROOT / "dist"}', f'--load-extension={ROOT / "dist"}'], viewport={'width': 1280, 'height': 900})
+            args=['--no-sandbox', '--enable-unsafe-extension-debugging', '--screen-info={1280x900}', f'--disable-extensions-except={ROOT / "dist"}', f'--load-extension={ROOT / "dist"}'], viewport={'width': 1280, 'height': 900})
         ctx.set_default_timeout(12000)
         worker = ctx.service_workers[0] if ctx.service_workers else ctx.wait_for_event('serviceworker')
         base = worker.url.rsplit('/', 1)[0] + '/'
@@ -106,8 +106,11 @@ def run():
             return popup
 
         popup = open_popup()
+        dimensions = popup.evaluate('({viewport:innerWidth,html:document.documentElement.scrollWidth,body:document.body.scrollWidth})')
+        assert dimensions == {'viewport': 390, 'html': 390, 'body': 390}, dimensions
         popup.wait('!document.querySelector("[data-action=copy-code]").disabled')
-        target = request('target')
+        # 无头浏览器打开原生弹窗后可能没有焦点窗口，按最近浏览器窗口定位测试页。
+        target = client.evaluate('chrome.windows.getLastFocused().then(window=>chrome.tabs.query({active:true,windowId:window.id})).then(([tab])=>({id:tab.id,origin:new URL(tab.url).origin}))')
         target_id = target['id']
         assert target['origin'] == 'https://login.example.test'
         assert popup.evaluate('document.querySelectorAll(".entry-card").length') == 1
@@ -128,8 +131,9 @@ def run():
         tabs_before = client.evaluate('chrome.tabs.query({}).then(tabs=>tabs.map(tab=>tab.id).sort())')
         popup.evaluate('document.querySelector(".heading-actions [data-action=new]").click()')
         popup.wait('!!document.querySelector("#entry-form")')
-        assert popup.evaluate('document.querySelector(".modal").getBoundingClientRect().width<=366')
+        assert popup.evaluate('document.querySelector(".modal").getBoundingClientRect().width<=336')
         assert popup.evaluate('document.querySelector(".modal").getBoundingClientRect().height<=430')
+        assert popup.evaluate('document.querySelector(".modal-body").scrollWidth<=document.querySelector(".modal-body").clientWidth')
         assert popup.evaluate('document.querySelectorAll("#entry-form input[type=radio],.filter-tabs").length===0')
         assert popup.evaluate('(()=>{const field=document.querySelector(".token-item [data-field=secret]").getBoundingClientRect(),body=document.querySelector(".modal-body").getBoundingClientRect();return field.top>=body.top&&field.bottom<=body.bottom})()')
         popup.evaluate('document.querySelector("#entry-title").value="Popup 2FA fixture";document.querySelector(".token-item [data-field=secret]").value="GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"')
@@ -150,6 +154,7 @@ def run():
         (screenshot.parent / 'popup-settings.png').write_bytes(base64.b64decode(popup.send('Page.captureScreenshot', {'format': 'png'})['data']))
         dimensions = popup.evaluate('({height:document.querySelector(".modal").getBoundingClientRect().height,width:document.querySelector(".modal").getBoundingClientRect().width})')
         assert dimensions['height'] < 340, dimensions
+        assert popup.evaluate('document.querySelector(".modal-body").scrollWidth<=document.querySelector(".modal-body").clientWidth')
         popup.evaluate('const select=document.querySelector("#theme-select");select.value="dark";select.dispatchEvent(new Event("change",{bubbles:true}))')
         assert popup.evaluate('document.documentElement.dataset.theme') == 'dark'
         popup.evaluate('document.querySelector("#modal-root [data-action=close-modal]").click()')
@@ -162,6 +167,7 @@ def run():
         popup.evaluate('document.querySelector(".topbar [data-action=transfer]").click()')
         popup.wait('!!document.querySelector("#backup-form")')
         assert popup.evaluate('document.querySelector(".modal").getBoundingClientRect().height<440')
+        assert popup.evaluate('document.querySelector(".modal-body").scrollWidth<=document.querySelector(".modal-body").clientWidth')
         (screenshot.parent / 'popup-backup.png').write_bytes(base64.b64decode(popup.send('Page.captureScreenshot', {'format': 'png'})['data']))
         popup.evaluate(f'document.querySelector("#backup-password").value={json.dumps(backup_password)};document.querySelector("#backup-confirm").value={json.dumps(backup_password)};document.querySelector("#backup-form button[type=submit]").click()')
         popup.wait('!document.querySelector("#backup-form")')

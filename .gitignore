@@ -1,17 +1,38 @@
-.venv/
-.runtime/
+# Node.js 依赖、构建与发行产物
+/node_modules/
+/dist/
+/release/
+/coverage/
+*.tsbuildinfo
+
+# Python 浏览器验收环境与缓存
+/.venv/
 __pycache__/
+*.py[cod]
 .pytest_cache/
-*.pyc
+
+# 本地运行配置、测试报告与日志
+/.runtime/
+/test-results/
+/playwright-report/
+*.log
+
+# 环境变量、凭证导出与本地数据
 .env
 .env.*
 !.env.example
-test-results/
-node_modules/
-dist/
-release/
+*.credmemo
+/CredMemo-*.json
+/backups/
+/exports/
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
 
-# 已停用的服务端及其本地配置不属于当前插件发行源码。
+# 旧服务端文件不得重新进入插件仓库
 /app/
 /manage.py
 /compose.yaml
@@ -23,11 +44,6 @@ release/
 /tests/test_vault.py
 /tests/browser_acceptance.py
 
-# 凭证、备份及本地运行数据不能进入公开仓库。
-*.credmemo
-*.db
-*.sqlite
-*.sqlite3
-*.log
-coverage/
+# 操作系统文件
 .DS_Store
+Thumbs.db

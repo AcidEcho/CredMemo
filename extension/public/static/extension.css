@@ -8,10 +8,10 @@
 .login-choice svg{width:17px;height:17px;color:var(--green)}
 .fill-button{margin-left:auto;background:var(--green-wash);border-radius:4px;padding:3px 10px}
 .fill-button+.icon-button{margin-left:2px}
-html[data-surface="popup"]{width:420px;height:560px;overflow:hidden}
+html[data-surface="popup"]{width:390px;height:560px;overflow:hidden}
 html[data-surface="popup"][data-view="unlock"]{height:350px}
 html[data-surface="popup"][data-view="setup"]{height:465px}
-html[data-surface="popup"] body{width:420px;height:100%;max-height:100dvh;overflow:hidden}
+html[data-surface="popup"] body{width:100%;height:100%;max-height:100dvh;overflow:hidden}
 html[data-surface="popup"] .auth-screen{display:block;height:100%;overflow-y:auto}
 html[data-surface="popup"] .auth-panel{min-height:100%;padding:32px 28px 20px}
 html[data-surface="popup"] .auth-form{padding:0;max-width:none}
@@ -56,8 +56,8 @@ html[data-surface="popup"] .empty-state h2{font-size:14px}
 html[data-surface="popup"] .empty-state p{font-size:11px}
 html[data-surface="popup"] .empty-state>.empty-icon{width:42px;height:42px;border-radius:12px;margin-bottom:12px}
 html[data-surface="popup"] .modal-overlay{padding:16px}
-html[data-surface="popup"] .modal{width:100%;max-width:366px;max-height:min(430px,calc(100dvh - 32px));border-radius:12px}
-html[data-surface="popup"] .modal.preferences{max-width:344px}
+html[data-surface="popup"] .modal{width:100%;max-width:336px;max-height:min(430px,calc(100dvh - 32px));border-radius:12px}
+html[data-surface="popup"] .modal.preferences{max-width:324px}
 html[data-surface="popup"] .modal-header{flex-shrink:0;padding:12px 15px 10px}
 html[data-surface="popup"] .modal-header h2{font-size:15px}
 html[data-surface="popup"] .modal-body{padding:12px 15px 15px}

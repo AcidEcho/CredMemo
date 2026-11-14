@@ -23,7 +23,7 @@ def run():
             ctx = p.chromium.launch_persistent_context(
                 profile, executable_path=CHROME, headless=True, accept_downloads=True,
                 args=['--no-sandbox', f'--disable-extensions-except={ROOT / "dist"}', f'--load-extension={ROOT / "dist"}'],
-                viewport={'width': 420, 'height': 600}, locale='zh-CN')
+                viewport={'width': 390, 'height': 600}, locale='zh-CN')
             ctx.set_default_timeout(12000)
             ctx.on('page', lambda tab: tab.on('pageerror', lambda error: errors.append(str(error))))
             ctx.on('request', lambda request: external.append(request.url) if request.url.startswith(('https://', 'http://')) else None)
@@ -145,6 +145,7 @@ def run():
         print('PASS: actual clipboard contains selected values', flush=True)
 
         page.locator('.main-content').evaluate('node=>node.scrollTop=0')
+        assert page.locator('.main-content').evaluate('node=>node.scrollWidth===node.clientWidth')
         page.screenshot(path=str(ARTIFACTS / 'popup-light.png'))
         page.locator('#header-avatar').click()
         page.locator('#theme-select').select_option('dark')
@@ -153,6 +154,7 @@ def run():
         expect(page.locator('#modal-title')).to_have_text('Preferences')
         close_modal()
         expect(page.locator('#page-title')).to_have_text('All credentials')
+        assert page.locator('.main-content').evaluate('node=>node.scrollWidth===node.clientWidth')
         page.screenshot(path=str(ARTIFACTS / 'popup-dark.png'))
         page.locator('#header-avatar').click()
         page.locator('#language-select').select_option('zh')
@@ -167,10 +169,10 @@ def run():
         print('PASS: visible TOTP refreshes across real time boundary', flush=True)
 
         awaitable_popup = ctx.new_page()
-        awaitable_popup.set_viewport_size({'width': 420, 'height': 600})
+        awaitable_popup.set_viewport_size({'width': 390, 'height': 600})
         awaitable_popup.goto(base + 'popup.html')
         expect(awaitable_popup.locator('.entry-card')).to_have_count(3)
-        assert awaitable_popup.evaluate('document.documentElement.scrollWidth') == 420
+        assert awaitable_popup.evaluate('document.documentElement.scrollWidth') == 390
         awaitable_popup.screenshot(path=str(ARTIFACTS / 'popup.png'), full_page=True)
         awaitable_popup.close()
         page.bring_to_front()
