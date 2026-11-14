@@ -61,6 +61,9 @@ def run():
             assert page.locator('.modal-body').evaluate('node=>node.scrollHeight<=node.clientHeight')
             page.locator('#entry-title').fill(title)
             page.locator('#entry-options > summary').click()
+            expect(page.locator('[data-action=generate], .login-options')).to_have_count(0)
+            expect(page.locator('.token-item .advanced-options')).to_be_hidden()
+            expect(page.locator('.login-item>.field-label').first).to_have_text('账号')
 
         def login():
             page.locator('.login-item [data-field=username]').fill('fixture@example.test')
@@ -72,8 +75,6 @@ def run():
 
         create('仅账号密码')
         expect(page.locator('.token-item [data-field=secret]')).to_be_visible()
-        page.locator('.login-options [data-action=generate]').click()
-        assert len(page.locator('.login-item [data-field=password]').input_value()) == 24
         login(); save()
         create('手动密钥')
         expect(page.locator('.login-item [data-field=username]')).to_be_visible()
@@ -142,6 +143,9 @@ def run():
         save()
         ctx.set_offline(False)
         expect(page.locator('.entry-card')).to_have_count(4)
+        qr_entry = next(item for item in request('list')['entries'] if item['title'] == 'Example:fixture')
+        qr_token = request('get', {'id': qr_entry['id']})['totps'][0]
+        assert (qr_token['digits'], qr_token['period'], qr_token['algorithm']) == (8, 60, 'SHA256')
         print('PASS: PNG QR recognized offline; label, secret, digits, period and algorithm survive save', flush=True)
 
         create('错误图片验收')
@@ -168,6 +172,33 @@ def run():
         expect(page.locator('#entry-title')).to_have_value('新表单')
         page.locator('#modal-root [data-action=close-modal]').first.click()
         print('PASS: canceled image recognition cannot populate a later editor', flush=True)
+
+        create('配置链接')
+        secret = page.locator('.token-item [data-field=secret]')
+        secret.fill(URI)
+        page.locator('#entry-title').click()
+        expect(page.locator('.advanced-options')).to_be_visible()
+        page.locator('.advanced-options summary').click()
+        expect(page.locator('[data-field=digits]')).to_have_value('8')
+        expect(page.locator('[data-field=period]')).to_have_value('60')
+        expect(page.locator('[data-field=algorithm]')).to_have_value('SHA256')
+        secret.fill(f'otpauth://totp/Example%3Afixture?secret={PUBLIC_SECRET}')
+        page.locator('#entry-title').click()
+        expect(page.locator('.advanced-options')).to_be_hidden()
+        expect(page.locator('[data-field=digits]')).to_have_value('6')
+        secret.fill(URI)
+        page.locator('#entry-title').click()
+        expect(page.locator('.advanced-options')).to_be_visible()
+        save()
+        linked = next(item for item in request('list')['entries'] if item['title'] == '配置链接')
+        page.locator(f'[data-entry="{linked["id"]}"] [data-action=edit]').click()
+        expect(page.locator('.advanced-options')).to_be_visible()
+        page.locator('#entry-notes').fill('Preserve special TOTP settings')
+        save()
+        preserved_token = request('get', {'id': linked['id']})['totps'][0]
+        assert (preserved_token['secret'], preserved_token['digits'], preserved_token['period'], preserved_token['algorithm']) == (PUBLIC_SECRET, 8, 60, 'SHA256')
+        assert preserved_token['label'] == 'Example:fixture'
+        print('PASS: setup links reveal only special TOTP parameters; editing preserves label, secret, digits, period and algorithm', flush=True)
 
         assert not external, external
         assert not errors, errors

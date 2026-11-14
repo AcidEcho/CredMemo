@@ -1,5 +1,6 @@
 import { I18N } from './i18n.js';
 import { readQrImage } from './qr.ts';
+import { normalizeTotp } from './totp.ts';
 (() => {
   'use strict';
   const {t} = I18N;
@@ -85,7 +86,8 @@ import { readQrImage } from './qr.ts';
   function renderCard(entry) {
     const id=entry.id,first=entry.logins[0];
     const login=first?`<div class="entry-account">${icon('user')}<span title="${escape(first.username)}">${escape(first.username)}</span>${iconButton('copy','copy-username','copyUsername',`data-id="${id}"`)}</div><div class="entry-password">${icon('lock')}<span>••••••••••</span>${iconButton('eye','reveal-card','showPassword',`data-id="${id}"`)}${iconButton('copy','copy-password','copyPassword',`data-id="${id}" data-index="0"`)}</div>`:'';
-    return `<article class="entry-card" data-entry="${id}"><div class="entry-card-top"><button class="entry-card-top" data-action="detail" data-id="${id}" style="padding:0;text-align:left;flex:1;min-width:0">${entryIcon(entry)}<div class="entry-title"><h3>${escape(entry.title)}</h3><small>${escape(domain(entry.url)||t(entry.totps.length&&!first?'twoFactor':'personalVault'))}</small></div></button><button class="icon-button favorite-button ${entry.favorite?'is-favorite':''}" data-action="favorite" data-id="${id}" aria-label="${escape(t(entry.favorite?'unfavorite':'favorite'))}" title="${escape(t(entry.favorite?'unfavorite':'favorite'))}">${icon('star')}</button></div>${login}${entry.totps.length?tokenBlock(id):''}<div class="entry-card-footer">${entry.logins.length>1?`<span class="tag-count">${escape(t('accountCount',{n:entry.logins.length}))}</span>`:''}${entry.totps.length>1?`<span class="tag-count">${escape(t('moreTokens',{n:entry.totps.length-1}))} 2FA</span>`:''}${matchesSite(entry)&&entry.logins.length?`<button class="text-button fill-button" data-action="fill" data-id="${id}">${escape(t('fill'))}</button>`:''}<span class="card-actions">${iconButton('edit','edit','editCredential',`data-id="${id}"`)}${iconButton('arrow-right','detail','viewDetails',`data-id="${id}"`)}</span></div></article>`;
+    const footer=[entry.logins.length>1?`<span class="tag-count">${escape(t('accountCount',{n:entry.logins.length}))}</span>`:'',entry.totps.length>1?`<span class="tag-count">${escape(t('moreTokens',{n:entry.totps.length-1}))} 2FA</span>`:'',matchesSite(entry)&&entry.logins.length?`<button class="text-button fill-button" data-action="fill" data-id="${id}">${escape(t('fill'))}</button>`:''].join('');
+    return `<article class="entry-card" data-entry="${id}"><div class="entry-card-top"><button class="entry-card-top" data-action="detail" data-id="${id}" aria-label="${escape(t('viewDetails'))}" style="padding:0;text-align:left;flex:1;min-width:0">${entryIcon(entry)}<div class="entry-title"><h3>${escape(entry.title)}</h3>${entry.url?`<small>${escape(domain(entry.url))}</small>`:''}</div></button><span class="card-actions">${iconButton('edit','edit','editCredential',`data-id="${id}"`)}${iconButton('trash','delete','deleteCredential',`data-id="${id}"`,'delete-button')}<button class="icon-button favorite-button ${entry.favorite?'is-favorite':''}" data-action="favorite" data-id="${id}" aria-label="${escape(t(entry.favorite?'unfavorite':'favorite'))}" title="${escape(t(entry.favorite?'unfavorite':'favorite'))}">${icon('star')}</button></span></div>${login}${entry.totps.length?tokenBlock(id):''}${footer?`<div class="entry-card-footer">${footer}</div>`:''}</article>`;
   }
   function render() {
     const entries=state.entries;
@@ -148,12 +150,12 @@ import { readQrImage } from './qr.ts';
     return `<div class="form-item login-item${primary?' primary-item':''}">${primary?'':iconButton('close','remove-item','removeItem','','remove-item')}
       <label class="field-label" for="login-user-${n}">${escape(t('account'))}</label><input class="input" id="login-user-${n}" data-field="username" value="${escape(item.username||'')}" placeholder="${escape(t('accountPlaceholder'))}" maxlength="320" autocomplete="off">
       <label class="field-label" for="login-password-${n}">${escape(t('password'))}</label><div class="input-wrap"><input id="login-password-${n}" data-field="password" type="password" value="${escape(item.password||'')}" maxlength="1000" autocomplete="new-password" placeholder="${escape(t('passwordValuePlaceholder'))}">${iconButton('eye','toggle-password','showPassword',`data-target="login-password-${n}"`)}</div>
-      <div class="login-options${primary?' primary-options':''}"><button type="button" class="text-button" data-action="generate" data-target="login-password-${n}">${escape(t('generate'))}</button><details class="item-options"><summary>${escape(t('accountLabel'))}</summary><input class="input" id="login-label-${n}" aria-label="${escape(t('accountLabel'))}" data-field="label" value="${escape(item.label||'')}" placeholder="${escape(t('accountLabelPlaceholder'))}" maxlength="100"></details></div></div>`;
+      <input type="hidden" data-field="label" value="${escape(item.label||'')}"></div>`;
   }
   function totpFields(item={},primary=false) {
-    const n=++itemSequence;
+    const n=++itemSequence,custom=(item.digits??6)!==6||(item.period??30)!==30||(item.algorithm??'SHA1')!=='SHA1';
     return `<div class="form-item token-item${primary?' primary-item':''}">${primary?'':iconButton('close','remove-item','removeItem','','remove-item')}<label class="field-label" for="token-secret-${n}">${escape(t('totpSecret'))}</label><div class="input-wrap"><input id="token-secret-${n}" data-field="secret" type="password" value="${escape(item.secret||'')}" maxlength="4096" autocomplete="off" placeholder="${escape(t('totpSecretPlaceholder'))}">${iconButton('eye','toggle-password','showPassword',`data-target="token-secret-${n}"`)}</div>
-      <details class="advanced-options${primary?' primary-options':''}"><summary>${escape(t('advanced'))}</summary><label class="field-label" for="token-label-${n}">${escape(t('totpName'))}</label><input class="input" id="token-label-${n}" data-field="label" value="${escape(item.label||'')}" maxlength="100" placeholder="${escape(t('totpNamePlaceholder'))}"><div class="token-options">${[['digits',[6,8]],['period',[15,30,60]],['algorithm',['SHA1','SHA256','SHA512']]].map(([name,options])=>`<label for="token-${name}-${n}">${escape(t(name))}<select class="select" id="token-${name}-${n}" data-field="${name}">${options.map(value=>`<option value="${value}" ${String(item[name]??(name==='digits'?6:name==='period'?30:'SHA1'))===String(value)?'selected':''}>${value}${name==='period'?'s':''}</option>`).join('')}</select></label>`).join('')}</div></details></div>`;
+      <input type="hidden" data-field="label" value="${escape(item.label||'')}"><details class="advanced-options" ${custom?'':'hidden'}><summary>${escape(t('advanced'))}</summary><div class="token-options">${[['digits',[6,8]],['period',[15,30,60]],['algorithm',['SHA1','SHA256','SHA512']]].map(([name,options])=>`<label for="token-${name}-${n}">${escape(t(name))}<select class="select" id="token-${name}-${n}" data-field="${name}">${options.map(value=>`<option value="${value}" ${String(item[name]??(name==='digits'?6:name==='period'?30:'SHA1'))===String(value)?'selected':''}>${value}${name==='period'?'s':''}</option>`).join('')}</select></label>`).join('')}</div></details></div>`;
   }
   function applyQrToken(token) {
     const form=$('#entry-form');if(!form)return;
@@ -270,7 +272,6 @@ import { readQrImage } from './qr.ts';
     if(action==='add-login'){if($$('.login-item').length>=30)throw new Error(t('invalid_input'));$('#login-items').insertAdjacentHTML('beforeend',loginFields());return;}
     if(action==='add-totp'){if($$('.token-item').length>=30)throw new Error(t('invalid_input'));$('#token-items').insertAdjacentHTML('beforeend',totpFields());$('#token-items .token-item:last-child input').focus();return;}
     if(action==='remove-item'){const item=button.closest('.form-item');if(!item.classList.contains('primary-item'))item.remove();return;}
-    if(action==='generate'){const bytes=crypto.getRandomValues(new Uint8Array(24)),alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*-_';document.getElementById(button.dataset.target).value=[...bytes].map(n=>alphabet[n%alphabet.length]).join('');return;}
     if(action==='copy-code'){const token=state.codes[id]?.[Number(index)];if(!token||token.expires_at*1000<=Date.now()+state.offset){await refreshCodes();return;}return copy(token.code);}
     if(action==='copy-username')return copy(state.entries.find(e=>e.id===id)?.logins[Number(index)]?.username||'');
     if(action==='copy-password'){const entry=selected?.id===id?selected:await request('get',{id});return copy(entry.logins[Number(index)].password);}
@@ -306,6 +307,15 @@ import { readQrImage } from './qr.ts';
   document.addEventListener('change',async event=>{
     const input=event.target;
     if(input.id==='qr-image')return importQrImage(input);
+    if(input.matches('.token-item [data-field=secret]')&&/^otpauth:\/\//i.test(input.value.trim())){
+      // 配置链接优先使用自身参数，无效内容留给保存时的校验处理。
+      try {
+        const item=input.closest('.token-item'),token=normalizeTotp({secret:input.value,label:$('[data-field=label]',item).value});
+        $$('[data-field]',item).forEach(field=>field.value=token[field.dataset.field]);
+        $('.advanced-options',item).hidden=token.digits===6&&token.period===30&&token.algorithm==='SHA1';
+      }catch{}
+      return;
+    }
     if(input.id==='theme-select'){theme=input.value;localStorage.setItem('credmemo-theme',theme);applyTheme();return;}
     if(input.id==='language-select'){setLanguage(input.value);settings();return;}
     if(input.id==='import-file'){

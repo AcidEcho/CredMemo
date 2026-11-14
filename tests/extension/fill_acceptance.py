@@ -116,8 +116,11 @@ def run():
         assert target['origin'] == 'https://login.example.test'
         assert popup.evaluate('document.querySelectorAll(".entry-card").length') == 1
         assert popup.evaluate('document.querySelector(".entry-password>svg use").getAttribute("href").endsWith("#lock")')
-        assert popup.evaluate('document.querySelector(".entry-card").getBoundingClientRect().height<=235')
+        card_dimensions = popup.evaluate('Object.fromEntries([".entry-card",".entry-card-top",".entry-account",".entry-password",".totp-block",".entry-card-footer"].map(selector=>[selector,document.querySelector(selector).getBoundingClientRect().height]))')
+        assert card_dimensions['.entry-card'] <= 190, card_dimensions
+        print(f'PASS: native popup card height is {card_dimensions[".entry-card"]:.1f}px including multiple-account count and site fill', flush=True)
         assert popup.evaluate('!!document.querySelector(".card-actions [data-action=edit]")')
+        assert popup.evaluate('!!document.querySelector(".entry-card-top .card-actions [data-action=delete]")')
         assert popup.evaluate('!document.querySelector("#site-context")')
         popup.evaluate('document.querySelector("[data-action=fill]").click()')
         popup.wait('document.querySelectorAll(".login-choice").length===2')
@@ -140,6 +143,8 @@ def run():
         assert popup.evaluate('document.querySelector(".modal-body").scrollWidth<=document.querySelector(".modal-body").clientWidth')
         assert popup.evaluate('document.querySelector(".modal-body").scrollHeight<=document.querySelector(".modal-body").clientHeight')
         assert popup.evaluate('document.querySelectorAll(".primary-item .remove-item").length===0')
+        assert popup.evaluate('document.querySelector(".login-item>.field-label").textContent==="账号"')
+        assert popup.evaluate('!document.querySelector("[data-action=generate],.login-options")')
         assert popup.evaluate('(()=>{const body=document.querySelector(".modal-body").getBoundingClientRect();let bottom=body.top;return ["#entry-title",".login-item [data-field=username]",".login-item [data-field=password]",".token-item [data-field=secret]","#entry-notes"].every(selector=>{const rect=document.querySelector(selector).getBoundingClientRect(),valid=rect.top>=bottom&&rect.bottom<=body.bottom;bottom=rect.bottom;return valid})})()')
         assert popup.evaluate('document.querySelectorAll("#entry-form input[type=radio],.filter-tabs").length===0')
         assert popup.evaluate('(()=>{const field=document.querySelector(".token-item [data-field=secret]").getBoundingClientRect(),body=document.querySelector(".modal-body").getBoundingClientRect();return field.top>=body.top&&field.bottom<=body.bottom})()')
@@ -147,6 +152,11 @@ def run():
         popup.evaluate('document.querySelector("#entry-notes").value="Synthetic note"')
         assert popup.evaluate('(()=>{const rect=document.querySelector("button[form=entry-form]").getBoundingClientRect();return rect.top>=0&&rect.bottom<=innerHeight})()')
         (screenshot.parent / 'popup-editor.png').write_bytes(base64.b64decode(popup.send('Page.captureScreenshot', {'format': 'png'})['data']))
+        popup.evaluate('document.querySelector("#entry-options > summary").click()')
+        assert popup.evaluate('document.querySelector(".advanced-options").hidden')
+        assert popup.evaluate('!document.querySelector(".login-options,[data-action=generate]")')
+        (screenshot.parent / 'popup-more-options.png').write_bytes(base64.b64decode(popup.send('Page.captureScreenshot', {'format': 'png'})['data']))
+        popup.evaluate('document.querySelector("#entry-options > summary").click()')
         popup.evaluate('document.querySelector("button[form=entry-form]").click()')
         popup.wait('!document.querySelector("#entry-form")&&document.querySelectorAll(".entry-card").length===2')
         created = next(item for item in request('list')['entries'] if item['title'] == 'Popup 2FA fixture')
@@ -157,6 +167,22 @@ def run():
         popup.evaluate('document.querySelector("#entry-title").value="Updated popup fixture";document.querySelector("button[form=entry-form]").click()')
         popup.wait('!document.querySelector("#entry-form")')
         assert request('get', {'id': created['id']})['title'] == 'Updated popup fixture'
+        popup.evaluate(f'document.querySelector(\'[data-entry="{created["id"]}"] .card-actions [data-action=delete]\').click()')
+        popup.wait('!!document.querySelector("[data-action=confirm-delete]")')
+        popup.wait('document.querySelector("#modal-root").getAnimations({subtree:true}).every(animation=>animation.playState!=="running")')
+        assert len(request('list')['entries']) == 2
+        (screenshot.parent / 'popup-delete.png').write_bytes(base64.b64decode(popup.send('Page.captureScreenshot', {'format': 'png'})['data']))
+        popup.evaluate('document.querySelector(".modal-footer [data-action=close-modal]").click()')
+        assert len(request('list')['entries']) == 2
+        popup.evaluate(f'document.querySelector(\'[data-entry="{created["id"]}"] .card-actions [data-action=delete]\').click()')
+        popup.wait('!!document.querySelector("[data-action=confirm-delete]")')
+        popup.evaluate('document.querySelector("[data-action=confirm-delete]").click()')
+        popup.wait('!document.querySelector("[data-action=confirm-delete]")&&document.querySelectorAll(".entry-card").length===1')
+        assert raw('get', {'id': created['id']})['error'] == 'not_found'
+        assert request('get', {'id': saved['id']})['logins'][0]['password'] == first_password
+        request('save', {'entry': {'title': 'Backup fixture', 'totps': [{'secret': 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'}]}})
+        popup.wait('document.querySelectorAll(".entry-card").length===2')
+        print('PASS: compact card deletes only after confirmation; cancel and other credentials preserve saved data', flush=True)
         popup.evaluate('document.querySelector(".topbar [data-action=settings]").click()')
         popup.wait('!!document.querySelector("#theme-select")')
         (screenshot.parent / 'popup-settings.png').write_bytes(base64.b64decode(popup.send('Page.captureScreenshot', {'format': 'png'})['data']))

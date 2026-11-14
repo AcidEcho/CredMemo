@@ -86,28 +86,31 @@ def run():
         page.locator('#entry-options summary').click()
         page.locator('#entry-url').fill('https://login.example.test/login')
         first = page.locator('.login-item').first
-        first.locator('.item-options summary').click()
-        first.locator('[data-field=label]').fill('主账号')
+        expect(page.locator('.login-options, [data-action=generate]')).to_have_count(0)
+        expect(first.locator('.field-label').first).to_have_text('账号')
         first.locator('[data-field=username]').fill('demo@example.test')
         first.locator('[data-field=password]').fill(credential_password)
         page.locator('[data-action=add-login]').click()
         second = page.locator('.login-item').nth(1)
-        second.locator('.item-options summary').click()
-        second.locator('[data-field=label]').fill('备用账号')
         second.locator('[data-field=username]').fill('backup@example.test')
         second.locator('[data-field=password]').fill(str(uuid.uuid4()))
-        for index, label in enumerate(['邮箱验证器', '备用验证器']):
+        for index in range(2):
             if index:
                 page.locator('[data-action=add-totp]').click()
             token = page.locator('.token-item').last
-            token.locator('.advanced-options summary').click()
-            token.locator('[data-field=label]').fill(label)
+            expect(token.locator('.advanced-options')).to_be_hidden()
             token.locator('[data-field=secret]').fill(PUBLIC_SECRET)
         page.locator('#entry-notes').fill('仅供界面验收的虚构资料。')
         page.locator('button[form=entry-form][type=submit]').click()
         expect(page.locator('.entry-card')).to_have_count(1)
         expect(page.locator('.totp-code')).to_have_text(re.compile(r'\d{3} \d{3}'))
         first_id = request('list')['entries'][0]['id']
+        legacy = request('get', {'id': first_id})
+        for login, label in zip(legacy['logins'], ['主账号', '备用账号']):
+            login['label'] = label
+        for token, label in zip(legacy['totps'], ['邮箱验证器', '备用验证器']):
+            token['label'] = label
+        request('save', {'id': first_id, 'version': legacy['version'], 'entry': legacy})
         print('PASS: UI saves multiple accounts and 2FA', flush=True)
 
         for title, username in [('开发平台', 'developer@example.test'), ('演示网站', 'hello@example.test')]:
@@ -129,6 +132,9 @@ def run():
         page.locator('button[form=entry-form][type=submit]').click()
         expect(page.locator('#modal-root')).to_be_empty()
         assert request('get', {'id': first_id})['notes'] == '已编辑的虚构资料。'
+        preserved = request('get', {'id': first_id})
+        assert [item['label'] for item in preserved['logins']] == ['主账号', '备用账号']
+        assert [item['label'] for item in preserved['totps']] == ['邮箱验证器', '备用验证器']
         card = page.locator(f'.entry-card[data-entry="{first_id}"]')
         card.locator('[data-action=favorite]').click()
         expect(card.locator('[data-action=favorite]')).to_have_class(re.compile('is-favorite'))
