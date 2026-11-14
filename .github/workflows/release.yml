@@ -18,6 +18,16 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - name: Validate release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          notes="release-notes/v${version}.md"
+          if [ ! -s "$notes" ]; then
+            echo "::error::Missing release notes: ${notes}"
+            exit 1
+          fi
       - name: Install dependencies
         run: npm ci
       - name: Check types
@@ -43,4 +53,4 @@ jobs:
           gh release create "$tag" "release/CredMemo-${version}.zip" "release/CredMemo-${version}.crx" \
             --target "$GITHUB_SHA" \
             --title "CredMemo ${tag}" \
-            --generate-notes
+            --notes-file "release-notes/${tag}.md"

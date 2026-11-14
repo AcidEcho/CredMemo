@@ -135,6 +135,8 @@ assets/screenshots/ 实际界面截图
 
 每次推送都会触发 [Release 工作流](.github/workflows/release.yml)：安装依赖 → 类型检查 → 核心测试 → 构建打包 → 发布 `v<版本>`、ZIP 和 CRX。签名私钥保存在本仓库的 Actions Secret `CREDMEMO_CRX_PRIVATE_KEY`，不进入源码或发行包。沿用同一私钥才能保持 CRX 身份。已有版本号会导致发布失败，避免覆盖旧版。交付前需确认工作流和两种 Release 资源实际发布成功。
 
+每个版本在 `release-notes/v<版本>.md` 提供中文发布说明，包含具体变化、实际验证情况和适用的升级注意事项。工作流会检查文件非空，并将其正文用于 GitHub Release；缺少说明时停止发布。
+
 此规则仅适用于 CredMemo，详见 [AGENTS.md](AGENTS.md)。
 
 ## 许可证与分发声明
