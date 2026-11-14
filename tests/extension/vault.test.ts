@@ -23,13 +23,31 @@ const sample = (): Credential => ({ title: 'Synthetic fixture', url: 'https://lo
 async function fixture() {
   const local = new MemoryStorage(), session = new MemoryStorage();
   let time = 1_700_000_000_000;
-  const master = crypto.randomUUID();
+  const master = crypto.randomUUID().slice(0, 12);
   const vault = new Vault(local, session, () => time);
   await vault.initialize(master);
   return { vault, local, session, master, advance: (ms: number) => { time += ms; } };
 }
 
 const code = (expected: string) => (error: unknown) => error instanceof Error && error.message === expected;
+
+test('new master passwords accept 6 and 12 characters and reject invalid bounds without creating data', async () => {
+  for (const secret of [undefined, null, 123456, crypto.randomUUID().slice(0, 5), crypto.randomUUID().slice(0, 13)]) {
+    const local = new MemoryStorage(), vault = new Vault(local, new MemoryStorage());
+    await assert.rejects(vault.initialize(secret), code('weak_master_password'));
+    assert.deepEqual(local.values, {});
+  }
+  for (const length of [6, 12]) {
+    const vault = new Vault(new MemoryStorage(), new MemoryStorage());
+    const master = crypto.randomUUID().slice(0, length);
+    await vault.initialize(master);
+    await vault.save(sample());
+    await vault.lock();
+    await vault.unlock(master);
+    assert.equal((await vault.export(master)).entries.length, 1);
+    await assert.rejects(vault.backup(crypto.randomUUID().slice(0, 6)), code('weak_password'));
+  }
+});
 
 test('account-only, 2FA-only and combined credentials persist independently', async () => {
   const { vault, local, master } = await fixture();
@@ -142,7 +160,12 @@ test('export requires master password; password change preserves ciphertext and 
   const { id } = await vault.save(sample());
   await assert.rejects(vault.export(crypto.randomUUID()), code('invalid_credentials'));
   assert.equal((await vault.export(master)).entries.length, 1);
-  const before = structuredClone(local.values[VAULT_KEY] as VaultEnvelope), next = crypto.randomUUID();
+  const before = structuredClone(local.values[VAULT_KEY] as VaultEnvelope), next = crypto.randomUUID().slice(0, 6);
+  for (const length of [5, 13]) {
+    await assert.rejects(vault.changePassword(master, crypto.randomUUID().slice(0, length)), code('weak_master_password'));
+    assert.deepEqual(local.values[VAULT_KEY], before);
+    assert.equal((await vault.status()).unlocked, true);
+  }
   await vault.changePassword(master, next);
   assert.deepEqual((local.values[VAULT_KEY] as VaultEnvelope).data, before.data);
   assert.equal((await vault.status()).unlocked, false);

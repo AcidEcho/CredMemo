@@ -18,6 +18,7 @@ def run():
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     errors, external = [], []
     master, next_master, backup_password, credential_password = [str(uuid.uuid4()) for _ in range(4)]
+    master, next_master = master[:6], next_master[:12]
     with sync_playwright() as p, tempfile.TemporaryDirectory(prefix='credmemo-acceptance-') as profile:
         def launch():
             ctx = p.chromium.launch_persistent_context(
@@ -34,6 +35,19 @@ def run():
         page = ctx.new_page()
         page.goto(base + 'popup.html')
         expect(page.locator('#auth-title')).to_have_text('创建本地凭证库')
+        expect(page.locator('#auth-password')).to_have_attribute('minlength', '6')
+        expect(page.locator('#auth-password')).to_have_attribute('maxlength', '12')
+        expect(page.locator('#auth-password')).to_have_attribute('placeholder', '设置 6～12 位主密码')
+        page.screenshot(path=str(ARTIFACTS / 'setup-master-zh.png'))
+        page.locator('.auth-preferences [data-action=language]').click()
+        expect(page.locator('#auth-password')).to_have_attribute('placeholder', 'Choose 6–12 characters')
+        page.screenshot(path=str(ARTIFACTS / 'setup-master-en.png'))
+        page.locator('.auth-preferences [data-action=language]').click()
+        page.locator('#auth-password').fill(master[:5])
+        page.locator('#confirm-password').fill(master[:5])
+        page.locator('#auth-form button[type=submit]').click()
+        assert page.locator('#auth-password').evaluate('node=>node.validity.tooShort')
+        expect(page.locator('#app-screen')).to_be_hidden()
         page.locator('#auth-password').fill(master)
         page.locator('#confirm-password').fill(master)
         page.locator('#auth-form button[type=submit]').click()
@@ -231,6 +245,8 @@ def run():
         page.bring_to_front()
         page.locator('#header-avatar').click()
         page.locator('[data-action=change-password]').click()
+        expect(page.locator('#new-password')).to_have_attribute('minlength', '6')
+        expect(page.locator('#new-password')).to_have_attribute('maxlength', '12')
         page.locator('#current-password').fill(master)
         page.locator('#new-password').fill(next_master)
         page.locator('#new-password-confirm').fill(next_master)

@@ -38,7 +38,7 @@ def run():
         base = worker.url.rsplit('/', 1)[0] + '/'
         page = ctx.new_page()
         page.goto(base + 'popup.html')
-        master, password = str(uuid.uuid4()), str(uuid.uuid4())
+        master, password = str(uuid.uuid4())[:12], str(uuid.uuid4())
         expect(page.locator('#auth-screen')).to_be_visible()
         page.locator('#auth-password').fill(master)
         page.locator('#confirm-password').fill(master)

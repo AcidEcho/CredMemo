@@ -64,6 +64,7 @@ def run():
         client.goto(base + 'popup.html')
         client.locator('#auth-screen').wait_for(state='visible')
         master, first_password, second_password = [str(uuid.uuid4()) for _ in range(3)]
+        master = master[:12]
 
         def raw(action, args=None):
             return client.evaluate('([action,args])=>chrome.runtime.sendMessage({type:"credmemo",action,args})', [action, args or {}])

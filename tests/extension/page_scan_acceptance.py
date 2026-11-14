@@ -30,7 +30,7 @@ def run():
         worker=ctx.service_workers[0] if ctx.service_workers else ctx.wait_for_event('serviceworker')
         base=worker.url.rsplit('/',1)[0]+'/'
         client=ctx.new_page();client.goto(base+'popup.html')
-        master=str(uuid.uuid4())
+        master=str(uuid.uuid4())[:12]
         expect(client.locator('#auth-screen')).to_be_visible()
         client.locator('#auth-password').fill(master);client.locator('#confirm-password').fill(master)
         client.locator('#auth-form button[type=submit]').click()

@@ -26,6 +26,11 @@ export function password(value: unknown): string {
   return value;
 }
 
+export function newMasterPassword(value: unknown): string {
+  if (typeof value !== 'string' || value.length < 6 || value.length > 12) fail('weak_master_password');
+  return value;
+}
+
 export function newKdf(): Kdf {
   return { algorithm: 'PBKDF2-SHA256', iterations: ITERATIONS, salt: base64(crypto.getRandomValues(new Uint8Array(16))) };
 }

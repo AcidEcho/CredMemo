@@ -1,4 +1,4 @@
-import { base64, createBackup, dataKey, derive, newKdf, openBackup, password, seal, unbase64, unseal, validateEnvelope, vaultContext, wrapContext } from './crypto.ts';
+import { base64, createBackup, dataKey, derive, newKdf, newMasterPassword, openBackup, seal, unbase64, unseal, validateEnvelope, vaultContext, wrapContext } from './crypto.ts';
 import { fail, type Entry, type StorageArea, type VaultEnvelope, type VaultSession } from './types.ts';
 import { credential, exportEntry, importEntries, publicEntry, storedEntries } from './validation.ts';
 import { generateTotp } from './totp.ts';
@@ -45,7 +45,7 @@ export class Vault {
 
   async initialize(secret: unknown) {
     if (await this.envelope()) fail('already_initialized');
-    const master = password(secret);
+    const master = newMasterPassword(secret);
     const raw = crypto.getRandomValues(new Uint8Array(32));
     const kdf = newKdf();
     const envelope: VaultEnvelope = { format: 'credmemo-vault', version: 2, id: crypto.randomUUID(), revision: 1, kdf,
@@ -59,7 +59,9 @@ export class Vault {
 
   private async unwrap(envelope: VaultEnvelope, secret: unknown): Promise<string> {
     try {
-      const wrapped = await unseal<{ key: string }>(await derive(password(secret), envelope.kdf), envelope.wrappedKey, wrapContext(envelope));
+      // 旧版允许更长的主密码，升级后仍需支持解锁与验证原密码。
+      if (typeof secret !== 'string' || secret.length < 6 || secret.length > 256) fail('invalid_credentials');
+      const wrapped = await unseal<{ key: string }>(await derive(secret, envelope.kdf), envelope.wrappedKey, wrapContext(envelope));
       unbase64(wrapped.key, 32);
       return wrapped.key;
     } catch { return fail('invalid_credentials'); }
@@ -184,7 +186,7 @@ export class Vault {
 
   async changePassword(currentPassword: unknown, nextPassword: unknown) {
     const { envelope } = await this.access();
-    const next = password(nextPassword);
+    const next = newMasterPassword(nextPassword);
     const raw = await this.unwrap(envelope, currentPassword);
     const kdf = newKdf();
     const changed = { ...envelope, kdf };
