@@ -55,7 +55,12 @@ def run():
         def create(title):
             page.locator('.heading-actions [data-action=new]').click()
             expect(page.locator('#entry-form input[type=radio]')).to_have_count(0)
+            expect(page.locator('#entry-notes')).to_be_visible()
+            expect(page.locator('#login-items .remove-item, #token-items .remove-item')).to_have_count(0)
+            expect(page.locator('.token-item > .field-label')).to_have_text('2FA')
+            assert page.locator('.modal-body').evaluate('node=>node.scrollHeight<=node.clientHeight')
             page.locator('#entry-title').fill(title)
+            page.locator('#entry-options > summary').click()
 
         def login():
             page.locator('.login-item [data-field=username]').fill('fixture@example.test')
@@ -67,6 +72,8 @@ def run():
 
         create('仅账号密码')
         expect(page.locator('.token-item [data-field=secret]')).to_be_visible()
+        page.locator('.login-options [data-action=generate]').click()
+        assert len(page.locator('.login-item [data-field=password]').input_value()) == 24
         login(); save()
         create('手动密钥')
         expect(page.locator('.login-item [data-field=username]')).to_be_visible()
@@ -98,6 +105,15 @@ def run():
         page.locator('#drawer-root [data-action=edit]').click()
         expect(page.locator('.login-item [data-field=password]')).to_have_value(password)
         expect(page.locator('.token-item [data-field=secret]')).to_have_value(PUBLIC_SECRET)
+        page.locator('#entry-options > summary').click()
+        page.locator('[data-action=add-login]').click()
+        page.locator('[data-action=add-totp]').click()
+        expect(page.locator('.primary-item .remove-item')).to_have_count(0)
+        expect(page.locator('.remove-item')).to_have_count(2)
+        page.locator('.login-item .remove-item').click()
+        page.locator('.token-item .remove-item').click()
+        expect(page.locator('.login-item')).to_have_count(1)
+        expect(page.locator('.token-item')).to_have_count(1)
         page.locator('[data-action=add-login]').click()
         page.locator('[data-action=add-totp]').click()
         save()
@@ -112,6 +128,7 @@ def run():
         page.locator('#qr-image').set_input_files(payload)
         expect(page.locator('#qr-status')).to_have_text('已识别 2FA，请检查后保存')
         expect(page.locator('.token-item')).to_have_count(1)
+        expect(page.locator('.token-item.primary-item .remove-item')).to_have_count(0)
         expect(page.locator('#entry-title')).to_have_value('Example:fixture')
         expect(page.locator('.token-item [data-field=secret]')).to_have_value(PUBLIC_SECRET)
         assert page.locator('.token-item [data-field=secret]').get_attribute('type') == 'password'

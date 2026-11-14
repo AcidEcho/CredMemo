@@ -22,6 +22,9 @@ __pycache__/
 .env.*
 !.env.example
 *.credmemo
+*.pem
+*.key
+*.crx
 /CredMemo-*.json
 /backups/
 /exports/

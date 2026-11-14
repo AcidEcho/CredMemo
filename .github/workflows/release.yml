@@ -25,6 +25,8 @@ jobs:
       - name: Run core tests
         run: npm test
       - name: Build extension package
+        env:
+          CREDMEMO_CRX_PRIVATE_KEY: ${{ secrets.CREDMEMO_CRX_PRIVATE_KEY }}
         run: npm run package
       - name: Publish GitHub Release
         env:
@@ -38,7 +40,7 @@ jobs:
             echo "Version already published. Increase the project and extension versions before uploading."
             exit 1
           fi
-          gh release create "$tag" "release/CredMemo-${version}.zip" \
+          gh release create "$tag" "release/CredMemo-${version}.zip" "release/CredMemo-${version}.crx" \
             --target "$GITHUB_SHA" \
             --title "CredMemo ${tag}" \
             --generate-notes

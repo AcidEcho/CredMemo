@@ -115,6 +115,9 @@ def run():
         target_id = target['id']
         assert target['origin'] == 'https://login.example.test'
         assert popup.evaluate('document.querySelectorAll(".entry-card").length') == 1
+        assert popup.evaluate('document.querySelector(".entry-password>svg use").getAttribute("href").endsWith("#lock")')
+        assert popup.evaluate('document.querySelector(".entry-card").getBoundingClientRect().height<=235')
+        assert popup.evaluate('!!document.querySelector(".card-actions [data-action=edit]")')
         assert popup.evaluate('!document.querySelector("#site-context")')
         popup.evaluate('document.querySelector("[data-action=fill]").click()')
         popup.wait('document.querySelectorAll(".login-choice").length===2')
@@ -135,18 +138,22 @@ def run():
         assert popup.evaluate('document.querySelector(".modal").getBoundingClientRect().width<=336')
         assert popup.evaluate('document.querySelector(".modal").getBoundingClientRect().height<=430')
         assert popup.evaluate('document.querySelector(".modal-body").scrollWidth<=document.querySelector(".modal-body").clientWidth')
+        assert popup.evaluate('document.querySelector(".modal-body").scrollHeight<=document.querySelector(".modal-body").clientHeight')
+        assert popup.evaluate('document.querySelectorAll(".primary-item .remove-item").length===0')
+        assert popup.evaluate('(()=>{const body=document.querySelector(".modal-body").getBoundingClientRect();let bottom=body.top;return ["#entry-title",".login-item [data-field=username]",".login-item [data-field=password]",".token-item [data-field=secret]","#entry-notes"].every(selector=>{const rect=document.querySelector(selector).getBoundingClientRect(),valid=rect.top>=bottom&&rect.bottom<=body.bottom;bottom=rect.bottom;return valid})})()')
         assert popup.evaluate('document.querySelectorAll("#entry-form input[type=radio],.filter-tabs").length===0')
         assert popup.evaluate('(()=>{const field=document.querySelector(".token-item [data-field=secret]").getBoundingClientRect(),body=document.querySelector(".modal-body").getBoundingClientRect();return field.top>=body.top&&field.bottom<=body.bottom})()')
         popup.evaluate('document.querySelector("#entry-title").value="Popup 2FA fixture";document.querySelector(".token-item [data-field=secret]").value="GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"')
+        popup.evaluate('document.querySelector("#entry-notes").value="Synthetic note"')
         assert popup.evaluate('(()=>{const rect=document.querySelector("button[form=entry-form]").getBoundingClientRect();return rect.top>=0&&rect.bottom<=innerHeight})()')
         (screenshot.parent / 'popup-editor.png').write_bytes(base64.b64decode(popup.send('Page.captureScreenshot', {'format': 'png'})['data']))
         popup.evaluate('document.querySelector("button[form=entry-form]").click()')
         popup.wait('!document.querySelector("#entry-form")&&document.querySelectorAll(".entry-card").length===2')
         created = next(item for item in request('list')['entries'] if item['title'] == 'Popup 2FA fixture')
-        popup.evaluate(f'document.querySelector(\'[data-entry="{created["id"]}"] [data-action=detail]\').click()')
-        popup.wait('!!document.querySelector("#drawer-root [data-action=edit]")')
-        popup.evaluate('document.querySelector("#drawer-root [data-action=edit]").click()')
+        popup.evaluate(f'document.querySelector(\'[data-entry="{created["id"]}"] .card-actions [data-action=edit]\').click()')
         popup.wait('!!document.querySelector("#entry-form")')
+        assert popup.evaluate('document.querySelector("#entry-notes").value') == 'Synthetic note'
+        assert popup.evaluate('document.querySelector(".token-item [data-field=secret]").value') == 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'
         popup.evaluate('document.querySelector("#entry-title").value="Updated popup fixture";document.querySelector("button[form=entry-form]").click()')
         popup.wait('!document.querySelector("#entry-form")')
         assert request('get', {'id': created['id']})['title'] == 'Updated popup fixture'

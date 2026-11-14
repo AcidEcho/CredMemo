@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, stat } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
+import { packCrx } from './crx.ts';
 
 await import('./build.mjs');
 
@@ -16,7 +17,7 @@ for (const required of ['LICENSE', 'NOTICE', 'licenses/jsqr.txt', 'licenses/vite
 }
 if (files.includes('index.html') || files.includes('scan.html')) throw new Error('Unexpected standalone page');
 for (const file of files) {
-  if (file.endsWith('.py') || file.endsWith('.env') || file.includes('node_modules')) throw new Error('Unexpected release file');
+  if (/\.(py|env|pem|key)$/.test(file) || file.includes('node_modules')) throw new Error('Unexpected release file');
 }
 await mkdir('release', { recursive: true });
 const target = resolve(`release/CredMemo-${manifest.version}.zip`);
@@ -24,3 +25,10 @@ const target = resolve(`release/CredMemo-${manifest.version}.zip`);
 const script = 'import pathlib,sys,zipfile\nroot=pathlib.Path("dist")\nwith zipfile.ZipFile(sys.argv[1],"w",zipfile.ZIP_DEFLATED) as archive:\n for path in sorted(root.rglob("*")):\n  if path.is_file(): archive.write(path,path.relative_to(root))';
 execFileSync('python3', ['-c', script, target], { stdio: 'inherit' });
 console.log(`${target} (${(await stat(target)).size} bytes)`);
+const signingKey = process.env.CREDMEMO_CRX_PRIVATE_KEY || await readFile('.runtime/crx-signing.pem', 'utf8').catch(() => {
+  throw new Error('CRX signing key is required. Set CREDMEMO_CRX_PRIVATE_KEY; use npm run build for unpacked development.');
+});
+const { publicKey } = JSON.parse(await readFile('crx-public-key.json', 'utf8'));
+const crxTarget = resolve(`release/CredMemo-${manifest.version}.crx`);
+const signed = await packCrx(target, crxTarget, signingKey, publicKey);
+console.log(`${crxTarget} (${(await stat(crxTarget)).size} bytes; ID: ${signed.extensionId})`);

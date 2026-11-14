@@ -8,14 +8,14 @@ CredMemo 是一个本地加密保存账号、密码和 2FA 动态验证码的 Ch
 
 ## 功能
 
-- 使用统一表单填写账号、密码和 2FA，按已填内容保存；支持单独保存账号密码、单独保存 2FA，或组合保存。
+- 默认同屏填写名称、账号、密码、2FA 和备注，按已填内容保存；支持单独保存账号密码、单独保存 2FA，或组合保存。
 - 每条凭证支持多个账号和多组 2FA，保存后自动生成动态验证码。
 - 手动输入 Base32 密钥或 `otpauth://totp/` 链接，也可以选择二维码图片。
 - 点击“扫码”，直接在当前网页上拖动框选二维码，识别后自动保存；无需来源选择或独立扫码窗口。
 - 一键复制账号、密码和验证码；支持当前网站的账号密码填充。
 - 搜索、收藏、中文 / English、浅色 / 深色 / 跟随系统主题。
 - 加密备份与恢复、JSON 导入导出、复制导出内容。
-- 凭证统一显示在列表中，保留搜索和收藏；日常管理操作均在工具栏弹窗内完成。
+- 紧凑凭证卡片支持直接编辑、查看详情、搜索和收藏；日常管理操作均在工具栏弹窗内完成。
 
 支持 TOTP 的 SHA1、SHA256、SHA512 算法，6 / 8 位验证码及 15 / 30 / 60 秒周期。不支持 HOTP。
 
@@ -33,7 +33,7 @@ CredMemo 是一个本地加密保存账号、密码和 2FA 动态验证码的 Ch
 
 快捷键：`Alt+Shift+C`。也可以在 `chrome://extensions/shortcuts` 调整。
 
-### 更新
+### ZIP 覆盖更新
 
 1. 更新前先导出加密备份，然后关闭插件弹窗。
 2. 下载新版 ZIP，将其中的文件直接解压覆盖原来的扩展目录，确保 `manifest.json` 仍在原目录内。
@@ -43,11 +43,19 @@ CredMemo 是一个本地加密保存账号、密码和 2FA 动态验证码的 Ch
 
 旧版设置的长主密码仍可解锁、导出及验证原密码；新建或修改主密码时使用 6～12 个字符。备份密码仍使用 12～256 个字符，已有备份可继续恢复。
 
+### CRX 安装与更新
+
+每次 Release 同时提供 `CredMemo-<版本>.zip` 与固定签名的 `CredMemo-<版本>.crx`。CRX 使用 CRX3 格式，同一签名下的版本保持同一插件身份。直接安装 CRX 取决于系统和浏览器的外部分发策略；若 Chrome 拒绝安装，请使用上述 ZIP 加载方式，参见 [Chrome 外部分发说明](https://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)。
+
+从 ZIP 加载切换到 CRX 会使用不同的插件身份，需要先导出加密备份，再在 CRX 版本中恢复。已有 ZIP 用户可继续按原目录覆盖更新；不要将切换安装方式视为原凭证自动迁移。Windows、macOS 的 CRX 安装及覆盖更新尚未真机验收。
+
 ## 使用
 
 ### 新建凭证
 
-点击“新建”，填写标题，以及所需的账号、密码或 2FA 密钥后保存。无需选择类型，空白项会自动忽略，至少要填写一组有效账号或 2FA。支持添加多组账号和密钥；网站、备注和 2FA 参数等内容在更多选项中配置。
+点击“新建”，依次填写名称、账号、密码、2FA、备注，默认五项同屏可见。基础输入框固定保留，空白凭证项会自动忽略，至少要填写一组有效账号或 2FA。
+
+“更多选项”中可配置网站、账号标签和 2FA 参数，生成随机密码、添加多组账号或 2FA、选择二维码图片。新增的额外账号和 2FA 可移除；卡片上的编辑按钮可直接打开对应凭证。
 
 如需网页填充，请在凭证中配置网站地址，并在对应网站打开插件。填充会核对协议、域名和端口；多个表单存在歧义时，先点击目标表单的输入框。插件不会自动提交登录表单。
 
@@ -91,9 +99,9 @@ CredMemo 是一个本地加密保存账号、密码和 2FA 动态验证码的 Ch
 
 以下截图使用公开测试数据：
 
-| 凭证列表 | 网页截图框选 |
-| --- | --- |
-| ![凭证列表](assets/screenshots/two-factor.png) | ![网页截图扫码](assets/screenshots/window-scan.png) |
+| 凭证列表 | 新建凭证 | 网页截图框选 |
+| --- | --- | --- |
+| ![凭证列表](assets/screenshots/two-factor.png) | ![五项同屏表单](assets/screenshots/new-credential.png) | ![网页截图扫码](assets/screenshots/window-scan.png) |
 
 ## 开发
 
@@ -107,7 +115,7 @@ npm run build
 npm run package
 ```
 
-开发时加载 `dist/` 目录；ZIP 输出到 `release/CredMemo-<版本>.zip`。
+开发时运行 `npm run build` 并加载 `dist/` 目录，无需签名密钥。`npm run package` 同时输出 `release/CredMemo-<版本>.zip` 与 `.crx`；需要通过 `CREDMEMO_CRX_PRIVATE_KEY` 提供签名私钥，或使用本机 `.runtime/crx-signing.pem`。私钥必须与 `crx-public-key.json` 的公开密钥匹配，打包时会校验签名、插件身份以及 CRX 内的 ZIP 内容。
 
 ```text
 extension/          插件界面、加密存储、动态码、填充与扫码
@@ -125,7 +133,7 @@ assets/screenshots/ 实际界面截图
 
 本项目每次完成修改后递增版本、提交并推送至 `main`，包括仅修改文档的情况。保持 `package.json`、`package-lock.json` 和扩展 `manifest.json` 的版本一致。
 
-每次推送都会触发 [Release 工作流](.github/workflows/release.yml)：安装依赖 → 类型检查 → 核心测试 → 构建打包 → 发布 `v<版本>` 和 ZIP。已有版本号会导致发布失败，避免覆盖旧版。交付前需确认工作流和 Release 资源实际发布成功。
+每次推送都会触发 [Release 工作流](.github/workflows/release.yml)：安装依赖 → 类型检查 → 核心测试 → 构建打包 → 发布 `v<版本>`、ZIP 和 CRX。签名私钥保存在本仓库的 Actions Secret `CREDMEMO_CRX_PRIVATE_KEY`，不进入源码或发行包。沿用同一私钥才能保持 CRX 身份。已有版本号会导致发布失败，避免覆盖旧版。交付前需确认工作流和两种 Release 资源实际发布成功。
 
 此规则仅适用于 CredMemo，详见 [AGENTS.md](AGENTS.md)。
 

@@ -185,6 +185,8 @@ input::placeholder,textarea::placeholder{color:var(--placeholder)}
 .entry-account .icon-button{height:25px;min-width:25px}
 .entry-account .icon-button svg{width:13px;height:13px}
 .entry-password{display:flex;align-items:center;gap:7px;font-size:14px;letter-spacing:2px;margin:0 0 16px}
+.entry-password>svg{width:13px;height:13px;color:var(--muted)}
+.entry-password>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .entry-password>.icon-button{height:25px;min-width:25px}
 .entry-password>.icon-button svg{width:13px;height:13px}
 .entry-password>.icon-button:first-of-type{margin-left:auto}
@@ -205,8 +207,9 @@ input::placeholder,textarea::placeholder{color:var(--placeholder)}
 .totp-placeholder svg{width:14px;height:14px}
 .entry-card-footer{display:flex;align-items:center;gap:6px;min-height:42px;border-top:1px solid var(--border);margin:0 -20px;padding:8px 17px;font-size:9px;color:var(--muted)}
 .entry-card-footer .tag-count{color:var(--green);font-size:8px}
-.entry-card-footer>.icon-button{margin-left:auto;height:25px;min-width:25px}
-.entry-card-footer>.icon-button svg{width:14px;height:14px}
+.card-actions{display:flex;gap:2px;margin-left:auto}
+.card-actions>.icon-button{height:25px;min-width:25px}
+.card-actions>.icon-button svg{width:14px;height:14px}
 .entries-grid.list-view{grid-template-columns:1fr;gap:10px}
 .list-view .entry-card{display:grid;grid-template-columns:1.1fr 1fr 1fr 80px;gap:18px;align-items:center;padding:16px 20px}
 .list-view .entry-account{margin:0}

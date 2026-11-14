@@ -9,13 +9,14 @@
 - 每次上传前递增版本，保持 `package.json`、`package-lock.json` 的两个项目版本及 `extension/public/manifest.json` 一致。
 - 提交标题使用 `类型：具体内容`，例如 `fix：修复屏幕扫码取消后的状态`。
 - 默认推送 `main`，由 `.github/workflows/release.yml` 自动验证、打包并发布 `v<版本>`；每次上传必须使用新版本，包括仅修改文档的情况。
-- 交付前确认远端提交、工作流结果、Release 标签及 ZIP 资源。失败时继续定位；确实受阻则报告原因，不能将上传成功当作发布完成。
+- 交付前确认远端提交、工作流结果、Release 标签及 ZIP、CRX 资源，校验固定签名及两种格式的内容。失败时继续定位；确实受阻则报告原因，不能将上传成功当作发布完成。
 - 禁止强制推送、覆盖已有 Release 或删除远端版本，除非用户明确要求。
 
 ## 发布范围
 
 - 仅发布当前纯本地 Chrome 插件：`extension/`、构建配置、`scripts/`、`tests/extension/`、使用说明、许可证及必要项目配置。
-- 保留 `.gitignore` 中对旧服务端、环境文件、依赖、构建产物及凭证备份的排除。发行 ZIP 作为 Release 资源，不提交到源码仓库。
+- 保留 `.gitignore` 中对旧服务端、环境文件、依赖、构建产物、私钥及凭证备份的排除。发行 ZIP、CRX 作为 Release 资源，不提交到源码仓库。
+- CRX 沿用 Actions Secret `CREDMEMO_CRX_PRIVATE_KEY` 的固定签名，不自动生成替代密钥；公开校验密钥位于 `crx-public-key.json`。ZIP 保持原目录加载身份，切换到 CRX 需通过备份迁移。
 - 不得提交真实账号密码、2FA 私密密钥、Token、浏览器配置、业务数据或未脱敏截图。测试仅使用随机凭证和公开 RFC 向量。
 - 分发包必须附带根目录 `LICENSE`、`NOTICE` 及适用的第三方许可证；不得以打包精简为由移除声明。
 
