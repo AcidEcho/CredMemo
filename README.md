@@ -43,6 +43,14 @@ CredMemo 是一个本地加密保存账号、密码和 2FA 动态验证码的 Ch
 
 旧版设置的长主密码仍可解锁、导出及验证原密码；新建或修改主密码时使用 6～12 个字符。备份密码仍使用 12～256 个字符，已有备份可继续恢复。
 
+### 出现两个 CredMemo 时
+
+扩展名称始终是 `CredMemo`；Chrome 在名称旁单独显示版本号。Chrome 按插件 ID 区分安装，不按名称或版本号合并。当前 ZIP 未设置固定公钥，加载不同的解压目录通常会产生不同 ID，因此新建版本目录再点击“加载已解压的扩展程序”会出现两个插件。
+
+更新时，将新版 ZIP **内部的文件**覆盖到原来加载的目录，再点击原插件的“重新加载”。即使原目录名包含旧版本号，也保留该目录名。例如原来加载 `D:\Apps\CredMemo-2.5.0\manifest.json`，升级后仍使用这个路径，文件内的版本会更新。不要把新版目录嵌套放进旧目录。
+
+下载 GitHub 安装包不会自动更新浏览器中的插件。若已出现两个插件，先分别备份其中需要保留的凭证，再在保留的那一份上按原目录覆盖更新；不同 ID 的凭证库相互独立，不会自动合并。
+
 ### CRX 安装与更新
 
 每次 Release 同时提供 `CredMemo-<版本>.zip` 与固定签名的 `CredMemo-<版本>.crx`。CRX 使用 CRX3 格式，同一签名下的版本保持同一插件身份。直接安装 CRX 取决于系统和浏览器的外部分发策略；若 Chrome 拒绝安装，请使用上述 ZIP 加载方式，参见 [Chrome 外部分发说明](https://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)。
@@ -127,7 +135,7 @@ assets/screenshots/ 实际界面截图
 
 核心测试覆盖 RFC 6238 向量、二维码解码、截图页面校验、凭证结构、加密存储、锁定、备份、导入校验和并发版本检查。浏览器验收还覆盖真实工具栏弹窗、统一表单、剪贴板、填充、主题以及当前网页框选；相关脚本位于 `tests/extension/`，运行时需额外安装 Playwright 和对应 Chrome。
 
-`tests/extension/upgrade_acceptance.py` 使用 v2.5.1 发行包验证覆盖升级、旧长主密码兼容、备份恢复及浏览器重启后的数据保留。通过 `CREDMEMO_PREVIOUS_ZIP` 指定旧版 ZIP 路径，默认读取 `release/CredMemo-2.5.1.zip`。
+`tests/extension/upgrade_acceptance.py` 使用 v2.5.0 或 v2.5.1 发行包验证覆盖升级、旧长主密码兼容、备份恢复及浏览器重启后的数据保留，并验证不同目录加载会创建独立 ID 和凭证库。通过 `CREDMEMO_PREVIOUS_ZIP` 指定旧版 ZIP 路径，默认读取 `release/CredMemo-2.5.1.zip`。
 
 ### 发布规则
 

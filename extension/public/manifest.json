@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CredMemo",
-  "version": "2.6.1",
+  "version": "2.6.2",
   "description": "本地加密保存账号、密码和 2FA，支持动态验证码、网站填充与加密备份。",
   "minimum_chrome_version": "116",
   "permissions": ["storage", "activeTab", "scripting", "clipboardWrite", "alarms"],

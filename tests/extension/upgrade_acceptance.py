@@ -25,7 +25,8 @@ def run():
         installed.mkdir()
         with zipfile.ZipFile(PREVIOUS_ZIP) as archive:
             assert archive.testzip() is None
-            assert json.loads(archive.read('manifest.json'))['version'] == '2.5.1'
+            previous_version = json.loads(archive.read('manifest.json'))['version']
+            assert previous_version in ('2.5.0', '2.5.1'), 'This legacy-password fixture requires v2.5.0 or v2.5.1'
             archive.extractall(installed)
 
         def launch(install=False):
@@ -63,7 +64,7 @@ def run():
         encrypted = page.evaluate('chrome.storage.local.get("credmemo-vault")')
         assert credential_password not in json.dumps(encrypted)
         assert PUBLIC_SECRET not in json.dumps(encrypted)
-        print('PASS: released 2.5.1 stores encrypted credentials with a long legacy master password; fresh install is unpinned', flush=True)
+        print(f'PASS: released {previous_version} stores encrypted credentials with a long legacy master password; fresh install is unpinned', flush=True)
 
         # 在扩展管理页重新加载，等待浏览器确认新版已启用后再访问凭证库。
         shutil.copytree(ROOT / 'dist', installed, dirs_exist_ok=True)
@@ -124,8 +125,20 @@ def run():
         expect(page.locator('.entry-card')).to_have_count(2)
         assert request('get', {'id': saved['id']})['logins'][0]['password'] == credential_password
         expect(page.locator('.totp-code').first).to_have_text(re.compile(r'\d{3} \d{3}'))
-        ctx.close()
         print('PASS: upgraded credentials and the new master password survive a browser restart', flush=True)
+
+        # 不同加载路径用于复现重复安装，不能把新的空凭证库当作升级结果。
+        duplicate = Path(folder) / f'CredMemo-{expected_version}'
+        shutil.copytree(ROOT / 'dist', duplicate)
+        loaded = ctx.browser.new_browser_cdp_session().send('Extensions.loadUnpacked', {'path': str(duplicate)})
+        assert loaded['id'] != extension_id
+        duplicate_page = ctx.new_page()
+        duplicate_page.goto(f'chrome-extension://{loaded["id"]}/popup.html')
+        expect(duplicate_page.locator('#confirm-password')).to_be_visible()
+        assert duplicate_page.evaluate('chrome.storage.local.get("credmemo-vault")') == {}
+        assert request('get', {'id': saved['id']})['logins'][0]['password'] == credential_password
+        ctx.close()
+        print('PASS: loading the same build from another directory creates a distinct ID and empty vault; the original vault remains intact', flush=True)
 
 
 if __name__ == '__main__':
