@@ -154,6 +154,7 @@ def run():
         assert values(view)==fields
         assert view.evaluate('document.querySelector(".token-item [data-field=secret]").value')==PUBLIC_SECRET
         assert view.evaluate('Object.fromEntries([...document.querySelectorAll(".token-item [data-field]")].filter(node=>["type","digits","period","algorithm"].includes(node.dataset.field)).map(node=>[node.dataset.field,node.value]))')=={'type':'totp','digits':'8','period':'60','algorithm':'SHA256'}
+        assert view.evaluate('document.querySelector(".advanced-options").hidden&&!document.querySelector(".token-heading select")')
         assert len(request('list')['entries'])==1
         view.evaluate('document.querySelector("button[form=entry-form]").click()')
         view.wait('!document.querySelector("#entry-form")')

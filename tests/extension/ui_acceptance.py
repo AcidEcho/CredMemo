@@ -1,4 +1,4 @@
-"""搜索入口与导入备份布局验收，使用临时配置及随机凭证。"""
+"""一体搜索、精简表单及导入备份布局验收，使用临时配置及随机凭证。"""
 import json
 import tempfile
 import uuid
@@ -42,9 +42,18 @@ def run():
         expect(page.locator('#page-title,[data-action=site-filter]')).to_have_count(0)
         expect(page.locator('#search-panel')).to_be_hidden()
         buttons = page.locator('.heading-actions .button').evaluate_all('items=>items.map(node=>({width:node.offsetWidth,height:node.offsetHeight,label:node.getAttribute("aria-label")}))')
-        assert len(buttons) == 3 and all(item['width'] == 32 and item['height'] == 32 and item['label'] for item in buttons)
+        assert len(buttons) == 3 and all(item['width'] == 28 and item['height'] == 28 and item['label'] for item in buttons)
+        assert page.locator('.heading-actions .button').evaluate_all('items=>items.map(node=>node.dataset.action)') == ['search-toggle', 'new', 'scan-page']
+        row_top = page.locator('.heading-actions').bounding_box()['y']
         page.locator('[data-action=search-toggle]').click()
         expect(page.locator('#search')).to_be_focused()
+        assert page.locator('#search-panel').bounding_box()['y'] == row_top
+        assert page.locator('.heading-actions').bounding_box()['height'] == 28
+        assert page.locator('#search-panel').evaluate('node=>node.clientWidth>=200&&node.scrollWidth<=node.clientWidth')
+        assert page.locator('[data-action=search-toggle]').evaluate('node=>node.closest(".search-control")===document.querySelector("#search-panel").parentElement&&getComputedStyle(node).borderLeftWidth==="0px"')
+        toggle = page.locator('[data-action=search-toggle]').bounding_box()
+        assert toggle['x'] + toggle['width'] == page.locator('#search-panel').bounding_box()['x']
+        page.screenshot(path=str(OUT / 'inline-search.png'), animations='disabled')
         page.locator('#search').fill('MAIL@')
         expect(page.locator('.entry-card')).to_have_count(1)
         page.keyboard.press('Escape')
@@ -56,6 +65,9 @@ def run():
         page.locator('[data-action=search-close]').click()
         page.screenshot(path=str(OUT / 'compact-list.png'), animations='disabled')
         page.locator('[data-action=new]').first.click()
+        expect(page.locator('.token-type')).to_be_hidden()
+        expect(page.locator('.token-heading select')).to_have_count(0)
+        expect(page.locator('.token-type')).to_have_value('totp')
         page.screenshot(path=str(OUT / 'new-credential.png'), animations='disabled')
         page.locator('#modal-root [data-action=close-modal]').first.focus()
         page.keyboard.press('/')
@@ -66,7 +78,7 @@ def run():
         page.wait_for_function('()=>{const canvas=document.querySelector("#totp-qr");return canvas&&canvas.width>=200&&canvas.width<=216}')
         page.screenshot(path=str(OUT / 'binding-qr.png'), animations='disabled')
         page.locator('#modal-root [data-action=close-modal]').click()
-        print('PASS: three equal icon buttons; search expands, matches without case sensitivity, clears on close and respects modal focus', flush=True)
+        print('PASS: three compact icons; integrated search expands within the same row; 2FA type stays behind its settings button', flush=True)
 
         def transfer(tab):
             page.locator('.topbar [data-action=transfer]').click()
@@ -87,6 +99,23 @@ def run():
                 if page.locator('html').get_attribute('data-theme') != theme:
                     page.locator('.topbar [data-action=theme]').click()
                 expect(page.locator('#toast-root')).to_be_empty()
+                page.locator('[data-action=search-toggle]').click()
+                assert page.locator('.heading-actions').evaluate('node=>node.scrollWidth<=node.clientWidth&&node.offsetHeight===28')
+                page.screenshot(path=str(OUT / f'inline-search-{language}-{theme}.png'), animations='disabled')
+                page.locator('[data-action=search-close]').click()
+                page.locator('[data-action=new]').first.click()
+                expect(page.locator('.token-type')).to_be_hidden()
+                assert page.locator('.modal-body').evaluate('node=>node.scrollHeight<=node.clientHeight+1&&node.scrollWidth<=node.clientWidth')
+                page.locator('[data-action=token-options]').click()
+                expect(page.locator('.token-type')).to_be_focused()
+                expect(page.locator('[data-action=token-options]')).to_have_attribute('aria-expanded', 'true')
+                assert page.locator('.advanced-options').evaluate('node=>node.scrollWidth<=node.clientWidth')
+                assert page.locator('.advanced-options').evaluate('node=>{const panel=node.getBoundingClientRect(),body=node.closest(".modal-body").getBoundingClientRect();return panel.top>=body.top-1&&panel.bottom<=body.bottom+1}')
+                page.screenshot(path=str(OUT / f'token-settings-{language}-{theme}.png'), animations='disabled')
+                page.locator('[data-action=token-options]').click()
+                expect(page.locator('.token-type')).to_be_hidden()
+                expect(page.locator('[data-action=token-options]')).to_have_attribute('aria-expanded', 'false')
+                page.locator('#modal-root .modal-header [data-action=close-modal]').click()
                 for tab in ['backup', 'import', 'export']:
                     transfer(tab)
                     layout()

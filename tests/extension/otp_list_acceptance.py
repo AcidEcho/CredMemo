@@ -46,7 +46,11 @@ def run():
             client.locator('#entry-title').fill(kind.upper() + ' fixture')
             if kind in ['totp', 'hotp']:
                 client.locator('#entry-url').fill('https://login.example.test')
-            client.locator('.token-type').select_option(kind)
+            expect(client.locator('.token-type')).to_be_hidden()
+            expect(client.locator('.token-heading select')).to_have_count(0)
+            if kind != 'totp':
+                client.locator('[data-action=token-options]').click()
+                client.locator('.token-type').select_option(kind)
             client.locator('.token-item [data-field=secret]').fill(PUBLIC_HEX if kind in ['hex', 'hhex'] else PUBLIC_SECRET)
             assert client.locator('.token-type option').count() == 6
             if kind == 'totp':
@@ -57,7 +61,6 @@ def run():
                 expect(client.locator('.counter-option')).to_be_visible()
                 expect(client.locator('.period-option')).to_be_hidden()
             if kind == 'hex':
-                client.locator('[data-action=token-options]').click()
                 client.locator('[data-field=algorithm]').select_option('GOST3411_2012_512')
                 client.locator('[data-field=period]').fill('45')
                 client.locator('[data-field=digits]').fill('10')
@@ -74,6 +77,20 @@ def run():
         expect(hotp.locator('.totp-code')).to_have_text('287 082')
         assert request('get', {'id': ids['hotp']})['totps'][0]['counter'] == 1
         print('PASS: all six OTP types can be created; GOST and extended parameters save; HOTP advances explicitly', flush=True)
+
+        for kind, entry_id in ids.items():
+            saved = request('get', {'id': entry_id})
+            client.locator(f'[data-entry="{entry_id}"] [data-action=edit]').click()
+            expect(client.locator('.token-type')).to_be_hidden()
+            expect(client.locator('.token-type')).to_have_value(kind)
+            client.locator('[data-action=token-options]').click()
+            expect(client.locator('.token-type')).to_have_value(kind)
+            client.locator('[data-action=token-options]').click()
+            client.locator('#entry-notes').fill('Preserve the selected verification code settings')
+            client.locator('button[form=entry-form]').click()
+            expect(client.locator('#entry-form')).to_have_count(0)
+            assert request('get', {'id': entry_id})['totps'] == saved['totps']
+        print('PASS: settings collapse without resetting any of the six types, parameters or HOTP counters during editing', flush=True)
 
         for title, url, label in [('工作 Example', '', ''), ('Label match', '', 'Example:secondary'), ('Example wrong site', 'https://unrelated.test', '')]:
             request('save', {'entry': {'title': title, 'url': url, 'logins': [], 'totps': [{'secret': PUBLIC_SECRET, 'label': label}]}})
@@ -143,7 +160,7 @@ def run():
         source = client.locator(f'[data-entry="{before[0]}"] .drag-handle')
         target = client.locator(f'[data-entry="{before[1]}"]')
         source.drag_to(target)
-        client.wait_for_function('document.querySelector("#toast-root").textContent.includes("顺序已保存")')
+        client.wait_for_function('()=>document.querySelector("#toast-root").textContent.includes("顺序已保存")')
         after = [entry['id'] for entry in request('list')['entries']]
         assert after[:2] == before[1::-1] and after[2:] == before[2:]
         client.screenshot(path=str(screenshots / 'otp-list-all.png'))
