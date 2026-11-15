@@ -26,6 +26,8 @@ import { moveVisible } from './list-order.ts';
     document.documentElement.dataset.theme = resolved;
     $('meta[name="theme-color"]').content = resolved==='dark'?'#141917':'#f7f8fa';
     $$('[data-action="theme"] use').forEach(el=>el.setAttribute('href',`/static/icons.svg#${resolved==='dark'?'moon':'sun'}`));
+    $('#toolbar-language').textContent=I18N.language==='zh'?'简体中文':'English';
+    $('#toolbar-theme').textContent=t(resolved);
   }
   function toast(message, error=false) {
     const node=document.createElement('div');node.className=`toast${error?' error':''}`;
@@ -46,6 +48,7 @@ import { moveVisible } from './list-order.ts';
     return response.data;
   }
   function showAuth() {
+    toolbarMenu(false);
     state.generation++;state.unlocked=false;state.entries=[];state.codes={};state.codePending=false;state.codeRetryAt=0;state.codeError=false;selected=null;transferFile=null;
     closeModal();closeDrawer();$('#entries').replaceChildren();$('#auth-password').value='';$('#confirm-password').value='';
     searchPanel(false,false);
@@ -107,9 +110,14 @@ import { moveVisible } from './list-order.ts';
     tickCodes();codeStatus();
   }
   function searchPanel(open,focus=true) {
+    toolbarMenu(false);
     $('#search-panel').hidden=!open;$('[data-action="search-toggle"]').setAttribute('aria-expanded',String(open));
     if(!open){$('#search').value='';render();}
     if(focus)(open?$('#search'):$('[data-action="search-toggle"]')).focus();
+  }
+  function toolbarMenu(open,focus=false) {
+    $('#toolbar-menu').hidden=!open;$('#toolbar-more').setAttribute('aria-expanded',String(open));
+    if(focus)(open?$('#toolbar-menu button'):$('#toolbar-more')).focus();
   }
   function codeStatus() {
     const label=$('.results-line [data-i18n="codesRefresh"]');
@@ -243,6 +251,7 @@ import { moveVisible } from './list-order.ts';
   async function lockVault() {try{await request('lock');}catch{}finally{showAuth();}}
   async function action(button) {
     const {action,id,index='0'}=button.dataset;
+    if(action==='toolbar-menu')return toolbarMenu($('#toolbar-menu').hidden,true);
     if(action==='search-toggle')return searchPanel($('#search-panel').hidden);
     if(action==='search-close')return searchPanel(false);
     if(action==='token-options'){const panel=$('.advanced-options',button.closest('.token-item'));panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden){$('.token-type',panel).focus();panel.scrollIntoView({block:'nearest'});}return;}
@@ -290,9 +299,13 @@ import { moveVisible } from './list-order.ts';
     if(action==='change-password')return openModal(t('changePassword'),`<div class="notice">${icon('info')}<span>${escape(t('changePasswordHint'))}</span></div><form id="password-form">${field('currentPassword','current-password','','passwordPlaceholder','password','required minlength="6" maxlength="12" autocomplete="current-password"')}${field('newPassword','new-password','','newPasswordPlaceholder','password','required minlength="6" maxlength="12" autocomplete="new-password"')}${field('confirmPassword','new-password-confirm','','repeatPassword','password','required minlength="6" maxlength="12" autocomplete="new-password"')}<div id="form-error" class="inline-error" hidden role="alert"></div></form>`,`<button class="button secondary" data-action="close-modal">${escape(t('cancel'))}</button><button type="submit" class="button primary" form="password-form">${escape(t('changePassword'))}</button>`,'small');
   }
   document.addEventListener('click',async event=>{
-    const button=event.target.closest('[data-action]');if(!button||button.disabled)return;
+    const button=event.target.closest('[data-action]');
+    if(!button){if(!event.target.closest('#toolbar-menu'))toolbarMenu(false);return;}
+    if(button.disabled)return;
+    if(button.dataset.action!=='toolbar-menu')toolbarMenu(false,$('#toolbar-menu').contains(button));
     try{await action(button);}catch(error){if(error.name!=='AbortError')toast(error.message||t('connectionFailed'),true);}
   });
+  document.addEventListener('focusin',event=>{if(!event.target.closest('#toolbar-menu,#toolbar-more'))toolbarMenu(false);});
   document.addEventListener('submit',async event=>{
     const form=event.target;event.preventDefault();const submit=event.submitter;
     const errorNode=form.id==='auth-form'?$('#auth-error'):$('#form-error')||$('#transfer-error');
@@ -342,6 +355,12 @@ import { moveVisible } from './list-order.ts';
   $('#entries').addEventListener('dragend',()=>{draggedId=null;$$('.drag-over').forEach(node=>node.classList.remove('drag-over'));});
   ['pointerdown','keydown','touchstart'].forEach(name=>document.addEventListener(name,()=>state.lastActive=Date.now(),{passive:true}));
   document.addEventListener('keydown',event=>{
+    if(event.target.closest('#toolbar-menu,#toolbar-more')&&['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
+      event.preventDefault();const items=$$('#toolbar-menu button'),index=items.indexOf(document.activeElement);
+      toolbarMenu(true);
+      items[event.key==='Home'?0:event.key==='End'?items.length-1:event.key==='ArrowDown'?(index+1)%items.length:(index<0?items.length-1:(index+items.length-1)%items.length)].focus();return;
+    }
+    if(event.key==='Escape'&&!$('#toolbar-menu').hidden){event.preventDefault();toolbarMenu(false,true);return;}
     const handle=event.target.closest('.drag-handle');if(handle&&['ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();const ids=$$('#entries [data-entry]').map(node=>node.dataset.entry),index=ids.indexOf(handle.dataset.id),next=ids[index+(event.key==='ArrowUp'?-1:1)];if(next)void reorder(handle.dataset.id,next);return;}
     if(event.key==='Escape'){if($('#modal-root').children.length)closeModal();else if($('#drawer-root').children.length)closeDrawer();else if(!$('#search-panel').hidden)searchPanel(false);}
     if(event.key==='/'&&state.unlocked&&!$('#modal-root').children.length&&!$('#drawer-root').children.length&&!['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName)){event.preventDefault();searchPanel(true);}

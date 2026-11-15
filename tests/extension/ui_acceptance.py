@@ -17,7 +17,7 @@ def run():
     with tempfile.TemporaryDirectory(prefix='credmemo-ui-') as profile, sync_playwright() as p:
         ctx = p.chromium.launch_persistent_context(profile, executable_path=CHROME, headless=True,
             args=['--no-sandbox', f'--disable-extensions-except={ROOT / "dist"}', f'--load-extension={ROOT / "dist"}'],
-            viewport={'width': 360, 'height': 560}, locale='zh-CN')
+            viewport={'width': 315, 'height': 560}, locale='zh-CN')
         worker = ctx.service_workers[0] if ctx.service_workers else ctx.wait_for_event('serviceworker')
         base = worker.url.rsplit('/', 1)[0] + '/'
         page = ctx.new_page()
@@ -42,24 +42,60 @@ def run():
         expect(page.locator('#page-title,[data-action=site-filter]')).to_have_count(0)
         expect(page.locator('#search-panel')).to_be_hidden()
         buttons = page.locator('.heading-actions .button').evaluate_all('items=>items.map(node=>({width:node.offsetWidth,height:node.offsetHeight,label:node.getAttribute("aria-label")}))')
-        assert len(buttons) == 3 and all(item['width'] == 28 and item['height'] == 28 and item['label'] for item in buttons)
+        assert len(buttons) == 3 and all(item['width'] == 26 and item['height'] == 28 and item['label'] for item in buttons)
         assert page.locator('.heading-actions .button').evaluate_all('items=>items.map(node=>node.dataset.action)') == ['search-toggle', 'new', 'scan-page']
+        assert page.locator('.topbar-actions>button').evaluate_all('items=>items.map(node=>node.dataset.action)') == ['lock', 'toolbar-menu']
+        assert page.locator('.heading-actions').evaluate('node=>!!node.closest(".topbar")')
+        expect(page.locator('.page-heading')).to_have_count(0)
+        expect(page.locator('#toolbar-menu')).to_be_hidden()
+        page.locator('#toolbar-more').click()
+        expect(page.locator('#toolbar-menu')).to_be_visible()
+        expect(page.locator('#toolbar-more')).to_have_attribute('aria-expanded', 'true')
+        page.keyboard.press('Escape')
+        expect(page.locator('#toolbar-more')).to_be_focused()
+        expect(page.locator('#toolbar-menu')).to_be_hidden()
+        page.keyboard.press('ArrowDown')
+        expect(page.locator('#toolbar-menu [data-action=transfer]')).to_be_focused()
+        page.keyboard.press('End')
+        expect(page.locator('#toolbar-menu [data-action=settings]')).to_be_focused()
+        page.keyboard.press('ArrowDown')
+        expect(page.locator('#toolbar-menu [data-action=transfer]')).to_be_focused()
+        page.keyboard.press('ArrowUp')
+        expect(page.locator('#toolbar-menu [data-action=settings]')).to_be_focused()
+        page.keyboard.press('Tab')
+        expect(page.locator('#toolbar-menu')).to_be_hidden()
+        page.locator('#toolbar-more').click()
+        page.locator('.main-content').click(position={'x': 3, 'y': 3})
+        expect(page.locator('#toolbar-menu')).to_be_hidden()
+        page.locator('#toolbar-more').click()
+        page.locator('#toolbar-menu [data-action=settings]').click()
+        expect(page.locator('#theme-select')).to_be_visible()
+        page.locator('#modal-root [data-action=close-modal]').click()
+        expect(page.locator('#toolbar-more')).to_be_focused()
+        assert page.locator('.results-line').bounding_box()['y'] >= page.locator('#entries').bounding_box()['y'] + page.locator('#entries').bounding_box()['height']
         row_top = page.locator('.heading-actions').bounding_box()['y']
         page.locator('[data-action=search-toggle]').click()
         expect(page.locator('#search')).to_be_focused()
         assert page.locator('#search-panel').bounding_box()['y'] == row_top
         assert page.locator('.heading-actions').bounding_box()['height'] == 28
-        assert page.locator('#search-panel').evaluate('node=>node.clientWidth>=200&&node.scrollWidth<=node.clientWidth')
+        assert page.locator('#search-panel').evaluate('node=>node.clientWidth>=120&&node.scrollWidth<=node.clientWidth')
+        expect(page.locator('.popup-brand')).to_be_hidden()
         assert page.locator('[data-action=search-toggle]').evaluate('node=>node.closest(".search-control")===document.querySelector("#search-panel").parentElement&&getComputedStyle(node).borderLeftWidth==="0px"')
         toggle = page.locator('[data-action=search-toggle]').bounding_box()
         assert toggle['x'] + toggle['width'] == page.locator('#search-panel').bounding_box()['x']
         page.screenshot(path=str(OUT / 'inline-search.png'), animations='disabled')
         page.locator('#search').fill('MAIL@')
         expect(page.locator('.entry-card')).to_have_count(1)
+        expect(page.locator('#results-count')).to_have_text('1 条凭证')
+        page.locator('#search').fill('No matching fixture')
+        expect(page.locator('#empty-state')).to_be_visible()
+        expect(page.locator('#results-count')).to_have_text('0 条凭证')
+        assert page.locator('.results-line').bounding_box()['y'] >= page.locator('#empty-state').bounding_box()['y'] + page.locator('#empty-state').bounding_box()['height']
         page.keyboard.press('Escape')
         expect(page.locator('#search-panel')).to_be_hidden()
         expect(page.locator('.entry-card')).to_have_count(2)
         expect(page.locator('[data-action=search-toggle]')).to_be_focused()
+        expect(page.locator('.popup-brand')).to_be_visible()
         page.keyboard.press('/')
         expect(page.locator('#search')).to_be_focused()
         page.locator('[data-action=search-close]').click()
@@ -81,12 +117,13 @@ def run():
         print('PASS: three compact icons; integrated search expands within the same row; 2FA type stays behind its settings button', flush=True)
 
         def transfer(tab):
+            page.locator('#toolbar-more').click()
             page.locator('.topbar [data-action=transfer]').click()
             if tab != 'backup':
                 page.locator(f'[data-action=transfer-tab][data-tab={tab}]').click()
 
         def layout():
-            assert page.evaluate('document.documentElement.scrollWidth===360')
+            assert page.evaluate('document.documentElement.scrollWidth===315')
             assert page.locator('.modal').evaluate('node=>node.getBoundingClientRect().width<=328&&node.getBoundingClientRect().height<=430')
             assert page.locator('.modal-body').evaluate('node=>node.scrollWidth<=node.clientWidth&&node.scrollHeight<=node.clientHeight+1')
             for button in page.locator('.transfer-actions button').all():
@@ -109,11 +146,19 @@ def run():
 
         for language in ['zh', 'en']:
             if page.locator('html').get_attribute('lang') != ('zh-CN' if language == 'zh' else 'en'):
+                page.locator('#toolbar-more').click()
                 page.locator('.topbar [data-action=language]').click()
             for theme in ['light', 'dark']:
                 if page.locator('html').get_attribute('data-theme') != theme:
+                    page.locator('#toolbar-more').click()
                     page.locator('.topbar [data-action=theme]').click()
                 expect(page.locator('#toast-root')).to_be_empty()
+                page.locator('#toolbar-more').click()
+                expect(page.locator('#toolbar-language')).to_have_text('简体中文' if language == 'zh' else 'English')
+                expect(page.locator('#toolbar-theme')).to_have_text(('浅色' if theme == 'light' else '深色') if language == 'zh' else theme.capitalize())
+                assert page.locator('#toolbar-menu').evaluate('node=>{const r=node.getBoundingClientRect();return node.scrollWidth<=node.clientWidth&&r.left>=0&&r.right<=innerWidth}')
+                page.screenshot(path=str(OUT / f'toolbar-menu-{language}-{theme}.png'), animations='disabled')
+                page.keyboard.press('Escape')
                 for action in ['edit', 'delete', 'copy-username', 'reveal-card', 'copy-code', 'show-qr']:
                     button = page.locator(f'#entries [data-action={action}]').first
                     before = button.bounding_box()
@@ -231,10 +276,13 @@ def run():
         page.locator('#modal-root [data-action=close-modal]').click()
         page.locator('[data-action=search-toggle]').click()
         page.locator('#search').fill('mail')
+        page.locator('#toolbar-more').click()
         request('lock')
         expect(page.locator('#auth-screen')).to_be_visible()
         expect(page.locator('#search-panel')).to_be_hidden()
         expect(page.locator('#search')).to_have_value('')
+        expect(page.locator('#toolbar-menu')).to_be_hidden()
+        expect(page.locator('#toolbar-more')).to_have_attribute('aria-expanded', 'false')
         assert not errors, errors
         print('PASS: file type switches, invalid files, pending reads and locking leave no stale data or page errors', flush=True)
         ctx.close()

@@ -24,7 +24,7 @@ def run():
             ctx = p.chromium.launch_persistent_context(
                 profile, executable_path=CHROME, headless=True, accept_downloads=True,
                 args=['--no-sandbox', f'--disable-extensions-except={ROOT / "dist"}', f'--load-extension={ROOT / "dist"}'],
-                viewport={'width': 360, 'height': 600}, locale='zh-CN')
+                viewport={'width': 315, 'height': 600}, locale='zh-CN')
             ctx.set_default_timeout(12000)
             ctx.on('page', lambda tab: tab.on('pageerror', lambda error: errors.append(str(error))))
             ctx.on('request', lambda request: external.append(request.url) if request.url.startswith(('https://', 'http://')) else None)
@@ -56,8 +56,10 @@ def run():
         print('PASS: first-run setup', flush=True)
 
         expect(page.locator('html')).to_have_attribute('data-theme', 'light')
+        page.locator('#toolbar-more').click()
         page.locator('.topbar [data-action=theme]').click()
         expect(page.locator('html')).to_have_attribute('data-theme', 'dark')
+        page.locator('#toolbar-more').click()
         page.locator('.topbar [data-action=theme]').click()
         expect(page.locator('html')).to_have_attribute('data-theme', 'light')
         print('PASS: one-click light/dark toggle from system theme', flush=True)
@@ -71,6 +73,7 @@ def run():
             page.locator('#modal-root [data-action=close-modal]').first.click()
 
         def transfer(tab):
+            page.locator('#toolbar-more').click()
             page.locator('.topbar [data-action=transfer]').click()
             if tab != 'backup':
                 page.locator(f'[data-action=transfer-tab][data-tab={tab}]').click()
@@ -164,6 +167,7 @@ def run():
         page.locator('.main-content').evaluate('node=>node.scrollTop=0')
         assert page.locator('.main-content').evaluate('node=>node.scrollWidth===node.clientWidth')
         page.screenshot(path=str(ARTIFACTS / 'popup-light.png'))
+        page.locator('#toolbar-more').click()
         page.locator('#header-avatar').click()
         page.locator('#theme-select').select_option('dark')
         expect(page.locator('html')).to_have_attribute('data-theme', 'dark')
@@ -178,6 +182,7 @@ def run():
         assert page.locator('.modal-body').evaluate('node=>node.scrollWidth<=node.clientWidth&&node.scrollHeight<=node.clientHeight')
         page.screenshot(path=str(ARTIFACTS / 'editor-dark-en.png'), animations='disabled')
         close_modal()
+        page.locator('#toolbar-more').click()
         page.locator('#header-avatar').click()
         page.locator('#language-select').select_option('zh')
         page.locator('#theme-select').select_option('light')
@@ -191,10 +196,10 @@ def run():
         print('PASS: visible TOTP refreshes across real time boundary', flush=True)
 
         awaitable_popup = ctx.new_page()
-        awaitable_popup.set_viewport_size({'width': 360, 'height': 600})
+        awaitable_popup.set_viewport_size({'width': 315, 'height': 600})
         awaitable_popup.goto(base + 'popup.html')
         expect(awaitable_popup.locator('.entry-card')).to_have_count(3)
-        assert awaitable_popup.evaluate('document.documentElement.scrollWidth') == 360
+        assert awaitable_popup.evaluate('document.documentElement.scrollWidth') == 315
         awaitable_popup.screenshot(path=str(ARTIFACTS / 'popup.png'), full_page=True)
         awaitable_popup.close()
         page.bring_to_front()
@@ -251,6 +256,7 @@ def run():
         second_window.goto(base + 'popup.html')
         expect(second_window.locator('#app-screen')).to_be_visible()
         page.bring_to_front()
+        page.locator('#toolbar-more').click()
         page.locator('#header-avatar').click()
         page.locator('[data-action=change-password]').click()
         expect(page.locator('#new-password')).to_have_attribute('minlength', '6')

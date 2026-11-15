@@ -385,8 +385,8 @@ export const I18N = (() => {
   Object.assign(en, {pageScanHint:'Drag around the complete QR code. Press Esc to cancel.',qr_selection_small:'Select the complete QR code.',qr_page_unavailable:'Scanning is unavailable on this page. Open CredMemo on a regular website.',qr_page_changed:'The page changed. Open CredMemo and scan again.',qr_capture_failed:'Could not capture this page. Wait and select again, or reopen CredMemo.'});
   Object.assign(zh, {otpType:'验证码类型',otp_totp:'TOTP · 时间',otp_hotp:'HOTP · 计数',otp_steam:'Steam',otp_battle:'Battle.net',otp_hex:'TOTP · HEX',otp_hhex:'HOTP · HEX',hexSecretPlaceholder:'输入十六进制密钥',counter:'计数',counterValue:'计数 {n}',nextCode:'下一计数验证码',counterAdvanced:'计数已递增',counter_exhausted:'计数已达上限，请重新绑定验证器',dragToSort:'拖拽排序，也可用上下方向键调整',orderSaved:'顺序已保存'});
   Object.assign(en, {otpType:'Verification code type',otp_totp:'TOTP · Time',otp_hotp:'HOTP · Counter',otp_steam:'Steam',otp_battle:'Battle.net',otp_hex:'TOTP · HEX',otp_hhex:'HOTP · HEX',hexSecretPlaceholder:'Enter a hexadecimal secret',counter:'Counter',counterValue:'Counter {n}',nextCode:'Next counter code',counterAdvanced:'Counter advanced',counter_exhausted:'Counter limit reached. Rebind the authenticator.',dragToSort:'Drag to reorder, or use the up and down arrow keys',orderSaved:'Order saved'});
-  Object.assign(zh, {searchAction:'搜索凭证',closeSearch:'关闭搜索',backupTab:'备份',importTab:'导入',exportTab:'导出'});
-  Object.assign(en, {searchAction:'Search credentials',closeSearch:'Close search',backupTab:'Backup',importTab:'Import',exportTab:'Export'});
+  Object.assign(zh, {moreActions:'更多',searchAction:'搜索凭证',closeSearch:'关闭搜索',backupTab:'备份',importTab:'导入',exportTab:'导出'});
+  Object.assign(en, {moreActions:'More',searchAction:'Search credentials',closeSearch:'Close search',backupTab:'Backup',importTab:'Import',exportTab:'Export'});
   let language = localStorage.getItem('credmemo-language') || 'zh';
   const t = (key, params={}) => Object.entries(params).reduce((s,[k,v])=>s.replaceAll(`{${k}}`,String(v)), (language==='en'?en:zh)[key] || key);
   function apply() {

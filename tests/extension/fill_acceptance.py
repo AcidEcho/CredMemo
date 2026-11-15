@@ -108,7 +108,7 @@ def run():
 
         popup = open_popup()
         dimensions = popup.evaluate('({viewport:innerWidth,html:document.documentElement.scrollWidth,body:document.body.scrollWidth})')
-        assert dimensions == {'viewport': 360, 'html': 360, 'body': 360}, dimensions
+        assert dimensions == {'viewport': 315, 'html': 315, 'body': 315}, dimensions
         assert popup.evaluate('[...document.querySelectorAll(".heading-actions button")].every(button=>!button.textContent.trim()&&!!button.getAttribute("aria-label"))')
         assert popup.evaluate('!document.querySelector("#page-title,[data-action=site-filter]")&&document.querySelector("#search-panel").hidden')
         assert popup.evaluate('!document.querySelector("[data-action=favorite],[data-action=filter]")')
@@ -187,6 +187,7 @@ def run():
         request('save', {'entry': {'title': 'Backup fixture', 'totps': [{'secret': 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'}]}})
         popup.wait('document.querySelectorAll(".entry-card").length===2')
         print('PASS: compact card deletes only after confirmation; cancel and other credentials preserve saved data', flush=True)
+        popup.evaluate('document.querySelector("#toolbar-more").click()')
         popup.evaluate('document.querySelector(".topbar [data-action=settings]").click()')
         popup.wait('!!document.querySelector("#theme-select")')
         (screenshot.parent / 'popup-settings.png').write_bytes(base64.b64decode(popup.send('Page.captureScreenshot', {'format': 'png'})['data']))
@@ -202,6 +203,7 @@ def run():
         downloads.mkdir()
         browser_cdp.send('Browser.setDownloadBehavior', {'behavior': 'allow', 'downloadPath': str(downloads)})
         backup_password = str(uuid.uuid4())
+        popup.evaluate('document.querySelector("#toolbar-more").click()')
         popup.evaluate('document.querySelector(".topbar [data-action=transfer]").click()')
         popup.wait('!!document.querySelector("#backup-form")')
         assert popup.evaluate('document.querySelector(".modal").getBoundingClientRect().height<440')
@@ -216,6 +218,7 @@ def run():
             client.wait_for_timeout(50)
         assert backups
         assert json.loads(backups[0].read_text())['format'] == 'credmemo-backup'
+        popup.evaluate('document.querySelector("#toolbar-more").click()')
         popup.evaluate('document.querySelector(".topbar [data-action=transfer]").click()')
         popup.wait('!!document.querySelector("[data-action=transfer-tab][data-tab=import]")')
         popup.evaluate('document.querySelector("[data-action=transfer-tab][data-tab=import]").click()')

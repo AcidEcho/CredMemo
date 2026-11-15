@@ -21,7 +21,7 @@ def run():
             return p.chromium.launch_persistent_context(profile, executable_path=CHROME, headless=True,
                 args=['--no-sandbox', '--enable-unsafe-extension-debugging', '--screen-info={1280x900}',
                     f'--disable-extensions-except={ROOT / "dist"}', f'--load-extension={ROOT / "dist"}'],
-                viewport={'width': 360, 'height': 600}, locale='zh-CN')
+                viewport={'width': 315, 'height': 600}, locale='zh-CN')
 
         ctx = launch()
         ctx.set_default_timeout(12000)
@@ -139,12 +139,13 @@ def run():
         view.wait('document.querySelector("#toast-root").textContent.includes("顺序已保存")')
         assert [entry['id'] for entry in request('list')['entries']] == expected
         assert visible()[:2] == [shown[1], shown[0]]
+        view.evaluate('document.querySelector("#toolbar-more").click()')
         view.evaluate('document.querySelector(".topbar [data-action=theme]").click()')
         dimensions = view.evaluate('({viewport:innerWidth,html:document.documentElement.scrollWidth,body:document.body.scrollWidth})')
         image = view.send('Page.captureScreenshot', {'format':'png'})['data']
         import base64
         (screenshots / 'otp-search-dark.png').write_bytes(base64.b64decode(image))
-        assert dimensions == {'viewport':360,'html':360,'body':360}, dimensions
+        assert dimensions == {'viewport':315,'html':315,'body':315}, dimensions
         view.evaluate('document.querySelector("[data-action=search-close]").click()')
         view.wait('document.querySelectorAll("#entries [data-entry]").length===9')
         view.evaluate('window.close()')

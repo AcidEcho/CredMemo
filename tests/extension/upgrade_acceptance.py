@@ -100,6 +100,7 @@ def run():
         expect(page.locator('.totp-code').first).to_have_text(re.compile(r'\d{3} \d{3}'))
         print('PASS: same-directory reload preserves the extension ID, encrypted vault, custom ordering, 12-character password unlock and TOTP', flush=True)
 
+        page.locator('#toolbar-more').click()
         page.locator('.topbar [data-action=transfer]').click()
         page.locator('[data-action=transfer-tab][data-tab=export]').click()
         page.locator('#export-password').fill(master)
@@ -108,6 +109,7 @@ def run():
         assert page.locator('#export-form').evaluate('node=>node.checkValidity()')
         assert request('export', {'password': master})['entries'][0]['logins'][0]['password'] == credential_password
         page.locator('#modal-root [data-action=close-modal]').first.click()
+        page.locator('#toolbar-more').click()
         page.locator('.topbar [data-action=settings]').click()
         page.locator('[data-action=change-password]').click()
         expect(page.locator('#current-password')).to_be_focused()

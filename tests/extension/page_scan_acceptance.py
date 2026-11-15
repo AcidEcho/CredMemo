@@ -113,7 +113,7 @@ def run():
         assert target
         view=Popup(cdp,client,target['targetId'])
         view.wait('document.querySelector("[data-action=copy-code]")?.disabled===false&&!document.querySelector(".filter-tabs")')
-        assert view.evaluate('innerWidth===360&&document.querySelector(".main-content").scrollWidth===document.querySelector(".main-content").clientWidth')
+        assert view.evaluate('innerWidth===315&&document.querySelector(".main-content").scrollWidth===document.querySelector(".main-content").clientWidth')
         (shots/'page-result.png').write_bytes(base64.b64decode(view.send('Page.captureScreenshot',{'format':'png'})['data']))
         assert PUBLIC_SECRET not in json.dumps(client.evaluate('chrome.storage.local.get(null)'))
         print('PASS: reversed selection at 2x scale auto-saves encrypted TOTP and returns to the unified list',flush=True)

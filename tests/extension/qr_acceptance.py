@@ -29,7 +29,7 @@ def run():
     with sync_playwright() as p, tempfile.TemporaryDirectory(prefix='credmemo-qr-') as profile:
         ctx = p.chromium.launch_persistent_context(profile, executable_path=CHROME, headless=True,
             args=['--no-sandbox', '--enable-unsafe-extension-debugging', f'--disable-extensions-except={ROOT / "dist"}', f'--load-extension={ROOT / "dist"}'],
-            viewport={'width': 360, 'height': 600}, locale='zh-CN')
+            viewport={'width': 315, 'height': 600}, locale='zh-CN')
         ctx.set_default_timeout(12000)
         errors = []
         ctx.on('page', lambda tab: tab.on('pageerror', lambda error: errors.append(str(error))))
@@ -117,7 +117,9 @@ def run():
         for index, token in enumerate(preserved['totps']):
             if index:
                 page.locator('#drawer-root [data-action=close-drawer]').click()
+                page.locator('#toolbar-more').click()
                 page.locator('.topbar [data-action=theme]').click()
+                page.locator('#toolbar-more').click()
                 page.locator('.topbar [data-action=language]').click()
                 page.locator(f'[data-entry="{multi_entry["id"]}"] [data-action=detail]').click()
             page.locator(f'#drawer-root [data-action=show-qr][data-index="{index}"]').click()
