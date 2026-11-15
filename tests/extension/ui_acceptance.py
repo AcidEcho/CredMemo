@@ -92,6 +92,17 @@ def run():
             for button in page.locator('.transfer-actions button').all():
                 assert button.evaluate('node=>node.getBoundingClientRect().bottom<=document.querySelector(".modal-body").getBoundingClientRect().bottom')
 
+        def settings_layout():
+            controls = page.locator('.advanced-options [data-field]:visible').evaluate_all('items=>items.map(node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}})')
+            assert len(controls) == 4
+            assert len({item['height'] for item in controls}) == 1
+            assert controls[0]['y'] == controls[1]['y'] and controls[2]['y'] == controls[3]['y']
+            assert controls[0]['x'] == controls[2]['x'] and controls[1]['x'] == controls[3]['x']
+            assert abs(controls[0]['width'] - controls[1]['width']) <= 1
+
+        def input_buttons_fit():
+            assert page.locator('#modal-root .input-wrap').evaluate_all('wraps=>wraps.every(wrap=>{const r=wrap.getBoundingClientRect(),buttons=[...wrap.querySelectorAll("button")].map(button=>button.getBoundingClientRect());return buttons.every((button,index)=>button.left>=r.left&&button.right<=r.right&&button.top>=r.top&&button.bottom<=r.bottom&&(!index||buttons[index-1].right<=button.left))})')
+
         for language in ['zh', 'en']:
             if page.locator('html').get_attribute('lang') != ('zh-CN' if language == 'zh' else 'en'):
                 page.locator('.topbar [data-action=language]').click()
@@ -99,6 +110,16 @@ def run():
                 if page.locator('html').get_attribute('data-theme') != theme:
                     page.locator('.topbar [data-action=theme]').click()
                 expect(page.locator('#toast-root')).to_be_empty()
+                for action in ['edit', 'delete', 'copy-username', 'reveal-card', 'copy-code', 'show-qr']:
+                    button = page.locator(f'#entries [data-action={action}]').first
+                    before = button.bounding_box()
+                    button.hover()
+                    assert button.bounding_box() == before
+                    if action in ['edit', 'delete']:
+                        page.screenshot(path=str(OUT / f'hover-{action}-{language}-{theme}.png'), animations='disabled')
+                page.locator('#entries [data-action=edit]').first.focus()
+                page.keyboard.press('Tab')
+                assert page.locator('#entries [data-action=delete]').first.evaluate('node=>node.matches(":focus-visible")&&parseFloat(getComputedStyle(node).outlineWidth)>0')
                 page.locator('[data-action=search-toggle]').click()
                 assert page.locator('.heading-actions').evaluate('node=>node.scrollWidth<=node.clientWidth&&node.offsetHeight===28')
                 page.screenshot(path=str(OUT / f'inline-search-{language}-{theme}.png'), animations='disabled')
@@ -106,11 +127,17 @@ def run():
                 page.locator('[data-action=new]').first.click()
                 expect(page.locator('.token-type')).to_be_hidden()
                 assert page.locator('.modal-body').evaluate('node=>node.scrollHeight<=node.clientHeight+1&&node.scrollWidth<=node.clientWidth')
+                input_buttons_fit()
+                page.locator('.token-item [data-action=toggle-password]').hover()
+                page.screenshot(path=str(OUT / f'hover-secret-{language}-{theme}.png'), animations='disabled')
                 page.locator('[data-action=token-options]').click()
                 expect(page.locator('.token-type')).to_be_focused()
                 expect(page.locator('[data-action=token-options]')).to_have_attribute('aria-expanded', 'true')
                 assert page.locator('.advanced-options').evaluate('node=>node.scrollWidth<=node.clientWidth')
                 assert page.locator('.advanced-options').evaluate('node=>{const panel=node.getBoundingClientRect(),body=node.closest(".modal-body").getBoundingClientRect();return panel.top>=body.top-1&&panel.bottom<=body.bottom+1}')
+                settings_layout()
+                input_buttons_fit()
+                page.locator('[data-action=token-options]').hover()
                 page.screenshot(path=str(OUT / f'token-settings-{language}-{theme}.png'), animations='disabled')
                 page.locator('[data-action=token-options]').click()
                 expect(page.locator('.token-type')).to_be_hidden()
@@ -124,7 +151,7 @@ def run():
                         expect(page.locator('#import-submit')).to_be_disabled()
                     page.screenshot(path=str(OUT / f'transfer-{tab}-{language}-{theme}.png'), animations='disabled')
                     page.locator('#modal-root [data-action=close-modal]').click()
-        print('PASS: backup/import/export layouts fit at 360px in both languages and themes, with actions visible without scrolling', flush=True)
+        print('PASS: aligned 2FA settings, contained hover targets, visible keyboard focus and transfer layouts in both languages and themes', flush=True)
 
         exported = request('export', {'password': master})
         encrypted = request('backup', {'password': backup_password})
