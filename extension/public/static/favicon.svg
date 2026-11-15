@@ -1,1 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect width="48" height="48" rx="14" fill="#246d50"/><g fill="none" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"><path d="m24 10 14 8-14 8-14-8z"/><path d="m10 24 14 8 14-8M10 30l14 8 14-8"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="tile" x1="18" y1="8" x2="108" y2="128" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2D8064"/>
+      <stop offset="1" stop-color="#174B3C"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="30" fill="url(#tile)"/>
+  <path d="M43 26H75L97 48V91C97 98.18 91.18 104 84 104H43C35.82 104 30 98.18 30 91V39C30 31.82 35.82 26 43 26Z" fill="#F4FAF6"/>
+  <path d="M75 26V40C75 44.42 78.58 48 83 48H97L75 26Z" fill="#94D7B6"/>
+  <path d="M72.5 63.5A9 9 0 1 0 59 71.29V80H68V71.29A9 9 0 0 0 72.5 63.5Z" fill="#215E49"/>
+  <g fill="#215E49">
+    <circle cx="49" cy="91" r="3"/>
+    <circle cx="63.5" cy="91" r="3"/>
+    <circle cx="78" cy="91" r="3"/>
+  </g>
+</svg>

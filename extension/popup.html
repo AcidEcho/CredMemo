@@ -16,7 +16,7 @@
     <section class="auth-panel">
       <div class="auth-preferences"><button class="icon-button" data-action="language" data-i18n-aria="language"><svg><use href="/static/icons.svg#globe"/></svg><span class="current-language">中文</span></button><button class="icon-button" data-action="theme" data-i18n-aria="theme"><svg><use href="/static/icons.svg#sun"/></svg></button></div>
       <form id="auth-form" class="auth-form">
-        <div class="small-mark"><svg><use href="/static/icons.svg#lock"/></svg></div>
+        <img class="auth-logo" src="/static/favicon.svg" width="32" height="32" alt="" aria-hidden="true">
         <h2 id="auth-title" data-i18n="welcome">欢迎回来</h2>
         <p id="auth-subtitle" class="muted" data-i18n="unlockDescription">登录，打开你的私人凭证库。</p>
         <label class="field-label" for="auth-password" data-i18n="masterPassword">主密码</label>
@@ -31,7 +31,7 @@
   <div id="app-screen" class="app-layout" hidden>
     <div class="main-shell">
       <header class="topbar">
-        <div class="popup-brand"><svg aria-hidden="true"><use href="/static/icons.svg#layers"/></svg><b>CredMemo</b></div>
+        <div class="popup-brand"><img src="/static/favicon.svg" width="22" height="22" alt="" aria-hidden="true"><b>CredMemo</b></div>
         <div class="topbar-actions">
           <button class="icon-button" data-action="transfer" data-i18n-aria="dataCenter"><svg><use href="/static/icons.svg#archive"/></svg></button>
           <button class="icon-button" data-action="language" data-i18n-aria="language"><svg><use href="/static/icons.svg#globe"/></svg></button>
@@ -53,7 +53,7 @@
       </main>
     </div>
   </div>
-  <div id="loading-screen" class="loading-screen"><span class="brand-icon"><svg><use href="/static/icons.svg#layers"/></svg></span><span>CredMemo</span><span class="spinner"></span></div>
+  <div id="loading-screen" class="loading-screen"><img class="loading-logo" src="/static/favicon.svg" width="36" height="36" alt="" aria-hidden="true"><span>CredMemo</span><span class="spinner"></span></div>
   <div id="modal-root"></div><div id="drawer-root"></div><div id="toast-root" class="toast-root" role="status" aria-live="polite"></div>
 </body>
 </html>
