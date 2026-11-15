@@ -3,6 +3,15 @@ name: Release
 on:
   push:
     branches: [main]
+    paths:
+      - 'extension/**'
+      - 'scripts/**'
+      - 'vite.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'crx-public-key.json'
+      - 'LICENSE'
+      - 'NOTICE'
 
 permissions:
   contents: write
