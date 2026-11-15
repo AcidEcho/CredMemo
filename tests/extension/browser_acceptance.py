@@ -34,12 +34,26 @@ def run():
         ctx, base = launch()
         page = ctx.new_page()
         page.goto(base + 'popup.html')
+
+        def auth_button(label):
+            button = page.locator('#auth-form button[type=submit]')
+            expect(button).to_have_text(label)
+            expect(button.locator('svg')).to_have_count(0)
+            rect = button.bounding_box()
+            text = page.locator('#auth-submit-label').bounding_box()
+            field = page.locator('#auth-password').locator('..').bounding_box()
+            assert rect['height'] == 40 and rect['width'] == field['width']
+            assert abs(text['x'] + text['width'] / 2 - rect['x'] - rect['width'] / 2) <= 1
+            assert rect['y'] + rect['height'] <= page.evaluate('innerHeight')
+
         expect(page.locator('#auth-title')).to_have_text('创建本地凭证库')
+        auth_button('创建凭证库')
         expect(page.locator('#auth-password')).to_have_attribute('minlength', '6')
         expect(page.locator('#auth-password')).to_have_attribute('maxlength', '12')
         expect(page.locator('#auth-password')).to_have_attribute('placeholder', '设置 6～12 位主密码')
         page.screenshot(path=str(ARTIFACTS / 'setup-master-zh.png'))
         page.locator('.auth-preferences [data-action=language]').click()
+        auth_button('Create local vault')
         expect(page.locator('#auth-password')).to_have_attribute('placeholder', 'Choose 6–12 characters')
         page.screenshot(path=str(ARTIFACTS / 'setup-master-en.png'))
         page.locator('.auth-preferences [data-action=language]').click()
@@ -300,9 +314,22 @@ def run():
         expect(page.locator('#auth-screen')).to_be_visible()
         expect(page.locator('#auth-title')).to_have_text('欢迎回来')
         assert page.locator('#entries .entry-card').count() == 0
-        page.locator('#auth-password').fill(next_master)
+        for language in ['zh', 'en']:
+            if page.locator('html').get_attribute('lang') != ('zh-CN' if language == 'zh' else 'en'):
+                page.locator('.auth-preferences [data-action=language]').click()
+            for theme in ['light', 'dark']:
+                if page.locator('html').get_attribute('data-theme') != theme:
+                    page.locator('.auth-preferences [data-action=theme]').click()
+                expect(page.locator('html')).to_have_attribute('data-theme', theme)
+                auth_button('解锁' if language == 'zh' else 'Unlock')
+                page.screenshot(path=str(ARTIFACTS / f'unlock-{language}-{theme}.png'), clip={'x': 0, 'y': 0, 'width': 315, 'height': 350})
         page.locator('#auth-form button[type=submit]').click()
+        assert page.locator('#auth-password').evaluate('node=>node.validity.valueMissing')
+        expect(page.locator('#app-screen')).to_be_hidden()
+        page.locator('#auth-password').fill(next_master)
+        page.locator('#auth-password').press('Enter')
         expect(page.locator('.entry-card')).to_have_count(6)
+        print('PASS: centered compact setup/unlock button; both languages and themes; empty input blocked and Enter unlocks', flush=True)
         print('PASS: browser restart locks and encrypted data persists', flush=True)
         ctx.close()
     print('Browser acceptance complete.', flush=True)
