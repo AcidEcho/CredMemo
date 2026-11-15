@@ -41,12 +41,9 @@
         </div>
       </header>
       <main class="main-content">
-        <div class="page-heading"><h1 id="page-title" data-i18n="allCredentials">全部凭证</h1><div class="heading-actions"><button class="button scan-button" data-action="scan-page" data-i18n-aria="scanSelection"><svg><use href="/static/icons.svg#scan"/></svg></button><button class="button primary" data-action="new" data-i18n-aria="addCredential"><svg><use href="/static/icons.svg#plus"/></svg></button></div></div>
+        <div class="page-heading"><div class="heading-actions"><button class="button primary" data-action="new" data-i18n-aria="addCredential"><svg><use href="/static/icons.svg#plus"/></svg></button><button class="button utility-button" data-action="scan-page" data-i18n-aria="scanSelection"><svg><use href="/static/icons.svg#scan"/></svg></button><button class="button utility-button search-toggle" data-action="search-toggle" data-i18n-aria="searchAction" aria-expanded="false" aria-controls="search-panel"><svg><use href="/static/icons.svg#search"/></svg></button></div></div>
         <section class="vault-section">
-          <div class="vault-toolbar">
-            <div class="search-box"><svg><use href="/static/icons.svg#search"/></svg><input id="search" data-i18n-placeholder="search" data-i18n-aria="search" type="search" autocomplete="off"><kbd>/</kbd></div>
-            <button class="icon-button site-filter" data-action="site-filter" data-i18n-aria="smartFilter" aria-pressed="true"><svg><use href="/static/icons.svg#filter"/></svg></button>
-          </div>
+          <div id="search-panel" class="search-box" hidden><svg><use href="/static/icons.svg#search"/></svg><input id="search" data-i18n-placeholder="search" data-i18n-aria="searchAction" type="search" autocomplete="off"><button class="icon-button" data-action="search-close" data-i18n-aria="closeSearch"><svg><use href="/static/icons.svg#close"/></svg></button></div>
           <div class="results-line"><span id="results-count"></span><span class="muted" data-i18n="codesRefresh">动态码随时间自动刷新</span></div>
           <div id="entries" class="entries-grid" aria-live="polite"></div><div id="empty-state" class="empty-state" hidden></div>
         </section>

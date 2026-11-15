@@ -13,7 +13,7 @@ if (!/^\d+\.\d+\.\d+$/.test(project.version) || [manifest.version, lock.version,
 if (manifest.manifest_version !== 3 || manifest.host_permissions?.length || manifest.permissions.some(permission => ['unlimitedStorage', 'desktopCapture'].includes(permission))) throw new Error('Unexpected manifest permissions');
 if (manifest.options_ui || manifest.options_page) throw new Error('A management page is not supported');
 const files = await readdir('dist', { recursive: true });
-for (const required of ['LICENSE', 'NOTICE', 'licenses/jsqr.txt', 'licenses/vite.txt', 'licenses/qrcode.txt', 'licenses/dijkstrajs.txt', 'licenses/gost.txt', 'licenses/noble-hashes.txt', 'licenses/tldts.txt', 'licenses/tldts-core.txt', 'licenses/public-suffix-list.txt']) {
+for (const required of ['LICENSE', 'NOTICE', 'licenses/jsqr.txt', 'licenses/vite.txt', 'licenses/qrcode.txt', 'licenses/dijkstrajs.txt', 'licenses/gost.txt', 'licenses/noble-hashes.txt']) {
   if (!files.includes(required)) throw new Error(`Missing distribution notice: ${required}`);
 }
 if (files.includes('index.html') || files.includes('scan.html')) throw new Error('Unexpected standalone page');

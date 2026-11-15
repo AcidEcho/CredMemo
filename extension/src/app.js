@@ -2,7 +2,7 @@ import { I18N } from './i18n.js';
 import QRCode from 'qrcode';
 import { totpQrPayload } from './totp-qr.ts';
 import { OTP_TYPES, OTP_ALGORITHMS, counterBased } from './otp-options.ts';
-import { matchesCurrentSite, moveVisible } from './list-order.ts';
+import { moveVisible } from './list-order.ts';
 (() => {
   'use strict';
   const {t} = I18N;
@@ -19,7 +19,6 @@ import { matchesCurrentSite, moveVisible } from './list-order.ts';
   let selected = null;
   let modalOpener = null;
   let transferFile = null;
-  let siteFilter = localStorage.getItem('credmemo-site-filter') !== 'off';
   let draggedId = null;
   let sorting = false;
   function applyTheme() {
@@ -49,7 +48,7 @@ import { matchesCurrentSite, moveVisible } from './list-order.ts';
   function showAuth() {
     state.generation++;state.unlocked=false;state.entries=[];state.codes={};state.codePending=false;state.codeRetryAt=0;state.codeError=false;selected=null;transferFile=null;
     closeModal();closeDrawer();$('#entries').replaceChildren();$('#auth-password').value='';$('#confirm-password').value='';
-    $('#search').value='';render();
+    searchPanel(false,false);
     $('#app-screen').hidden=true;$('#auth-screen').hidden=false;$('#loading-screen').hidden=true;
     authMode(initialized?'unlock':'setup');
   }
@@ -100,16 +99,17 @@ import { matchesCurrentSite, moveVisible } from './list-order.ts';
   function render() {
     const entries=state.entries;
     const query=$('#search').value.trim().toLowerCase();
-    const matched=target?entries.filter(entry=>matchesCurrentSite(entry,target.origin)):[];
-    const filtering=siteFilter&&matched.length>0;
-    const filtered=(filtering?matched:entries).filter(entry=>(!query||[entry.title,entry.url,...entry.logins.map(l=>l.username),...entry.totps.map(l=>l.label)].some(value=>value.toLowerCase().includes(query))));
-    $('#page-title').textContent=t(filtering?'currentSite':'allCredentials');
-    const filter=$('[data-action="site-filter"]');filter.disabled=!target;filter.setAttribute('aria-pressed',String(siteFilter));filter.title=t(filtering?'showAllCredentials':'smartFilter');
+    const filtered=entries.filter(entry=>(!query||[entry.title,entry.url,...entry.logins.map(l=>l.username),...entry.totps.map(l=>l.label)].some(value=>value.toLowerCase().includes(query))));
     $('#results-count').textContent=t('itemCount',{n:filtered.length});
     $('#entries').innerHTML=filtered.map(renderCard).join('');
     $('#empty-state').hidden=!!filtered.length;
     if(!filtered.length){const empty=entries.length===0;$('#empty-state').innerHTML=`<div class="empty-icon">${icon(empty?'layers':'search')}</div><h2>${escape(t(empty?'emptyTitle':'emptySearchTitle'))}</h2><p>${escape(t(empty?'emptyDescription':'emptySearchDescription'))}</p><button class="button ${empty?'primary':'secondary'}" data-action="${empty?'new':'clear'}">${icon(empty?'plus':'refresh')}${escape(t(empty?'addCredential':'clearSearch'))}</button>`;}
     tickCodes();codeStatus();
+  }
+  function searchPanel(open,focus=true) {
+    $('#search-panel').hidden=!open;$('[data-action="search-toggle"]').setAttribute('aria-expanded',String(open));
+    if(!open){$('#search').value='';render();}
+    if(focus)(open?$('#search'):$('[data-action="search-toggle"]')).focus();
   }
   function codeStatus() {
     const label=$('.results-line [data-i18n="codesRefresh"]');
@@ -189,7 +189,7 @@ import { matchesCurrentSite, moveVisible } from './list-order.ts';
     if(!data.logins.length&&!data.totps.length)throw new Error(t('credential_required'));
     const id=form.dataset.id;
     await request('save',{id:id||undefined,entry:data,version:id?Number(form.dataset.version):undefined});
-    if(!id){$('#search').value='';if(target&&!matchesCurrentSite({...data,id:''},target.origin))siteFilter=false;}
+    if(!id)searchPanel(false,false);
     closeModal();toast(t('saved'));await loadEntries();
   }
   async function showQr(id,index) {
@@ -207,14 +207,18 @@ import { matchesCurrentSite, moveVisible } from './list-order.ts';
     entry.logins.forEach((login,index)=>$(`#detail-password-${index}`).value=login.password);tickCodes();document.body.style.overflow='hidden';$('#drawer-root [data-action="close-drawer"]').focus();
   }
   function transfer(tab='backup') {
+    const opener=$('#modal-root .transfer')?modalOpener:null;
     transferFile=null;
-    const tabs=`<div class="transfer-tabs">${['backup','import','export'].map(name=>`<button class="${tab===name?'active':''}" data-action="transfer-tab" data-tab="${name}">${escape(t(name))}</button>`).join('')}</div>`;
+    const tabs=`<div class="transfer-tabs" role="group" aria-label="${escape(t('dataCenter'))}">${['backup','import','export'].map(name=>`<button class="${tab===name?'active':''}" data-action="transfer-tab" data-tab="${name}" aria-pressed="${tab===name}">${icon({backup:'shield',import:'upload',export:'download'}[name])}${escape(t(name+'Tab'))}</button>`).join('')}</div>`;
+    const hint=(key,warning=false)=>`<div class="transfer-note${warning?' warning':''}">${icon(warning?'info':'shield')}<span>${escape(t(key))}</span></div>`;
     let body='';
-    if(tab==='backup') body=`<div class="notice">${icon('shield')}<span>${escape(t('backupHint'))}</span></div><form id="backup-form">${field('backupPassword','backup-password','','backupPasswordPlaceholder','password','required minlength="12" maxlength="256" autocomplete="new-password"')}${field('confirmBackup','backup-confirm','','confirmBackup','password','required minlength="12" maxlength="256" autocomplete="new-password"')}<div class="inline-error" id="transfer-error" hidden role="alert"></div><button type="submit" class="button primary" style="margin-top:14px">${icon('download')}${escape(t('downloadBackup'))}</button></form>`;
-    if(tab==='export') body=`<div class="notice warning">${icon('info')}<span>${escape(t('exportWarning'))}</span></div><form id="export-form">${field('confirmMaster','export-password','','passwordPlaceholder','password','required minlength="6" maxlength="12" autocomplete="current-password"')}<div class="inline-error" id="transfer-error" hidden role="alert"></div><div style="display:flex;gap:9px;margin-top:14px;flex-wrap:wrap"><button type="submit" class="button primary" name="mode" value="download">${icon('download')}${escape(t('downloadJson'))}</button><button type="submit" class="button secondary" name="mode" value="copy">${icon('copy')}${escape(t('copyJson'))}</button></div></form>`;
-    if(tab==='import') body=`<form id="import-form"><label class="upload-zone">${icon('upload')}<b id="file-name">${escape(t('selectFile'))}</b><span>${escape(t('fileTypes'))}</span><input id="import-file" type="file" accept=".json,.credmemo,application/json" aria-label="${escape(t('selectFile'))}" required></label><div id="restore-password-field" hidden>${field('restorePassword','restore-password','','restorePasswordPlaceholder','password','minlength="12" maxlength="256" autocomplete="off"')}</div><div class="notice">${icon('info')}<span>${escape(t('importHint'))}</span></div><div class="inline-error" id="transfer-error" hidden role="alert"></div><button type="submit" class="button primary">${icon('upload')}${escape(t('importButton'))}</button></form>`;
+    if(tab==='backup') body=`<form id="backup-form">${hint('backupHint')}${field('backupPassword','backup-password','','backupPasswordPlaceholder','password','required minlength="12" maxlength="256" autocomplete="new-password"')}${field('confirmBackup','backup-confirm','','confirmBackup','password','required minlength="12" maxlength="256" autocomplete="new-password"')}<div class="inline-error" id="transfer-error" hidden role="alert"></div><div class="transfer-actions"><button type="submit" class="button primary">${icon('download')}${escape(t('downloadBackup'))}</button></div></form>`;
+    if(tab==='export') body=`<form id="export-form">${hint('exportWarning',true)}${field('confirmMaster','export-password','','passwordPlaceholder','password','required minlength="6" maxlength="12" autocomplete="current-password"')}<div class="inline-error" id="transfer-error" hidden role="alert"></div><div class="transfer-actions split"><button type="submit" class="button primary" name="mode" value="download">${icon('download')}${escape(t('downloadJson'))}</button><button type="submit" class="button secondary" name="mode" value="copy">${icon('copy')}${escape(t('copyJson'))}</button></div></form>`;
+    if(tab==='import') body=`<form id="import-form"><label class="upload-zone">${icon('upload')}<span class="upload-details"><b id="file-name">${escape(t('selectFile'))}</b><span>${escape(t('fileTypes'))}</span></span><input id="import-file" type="file" accept=".json,.credmemo,application/json" aria-label="${escape(t('selectFile'))}" required></label><div id="restore-password-field" hidden>${field('restorePassword','restore-password','','restorePasswordPlaceholder','password','minlength="12" maxlength="256" autocomplete="off"')}</div>${hint('importHint')}<div class="inline-error" id="transfer-error" hidden role="alert"></div><div class="transfer-actions"><button type="submit" id="import-submit" class="button primary" disabled>${icon('upload')}${escape(t('importButton'))}</button></div></form>`;
     openModal(t('dataCenter'),tabs+`<section class="transfer-panel">${body}</section>`,'','transfer');
+    if(opener)modalOpener=opener;
   }
+
   function download(data,filename) {const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   async function transferSubmit(form,event) {
     const stamp=new Date().toISOString().slice(0,10);
@@ -239,7 +243,8 @@ import { matchesCurrentSite, moveVisible } from './list-order.ts';
   async function lockVault() {try{await request('lock');}catch{}finally{showAuth();}}
   async function action(button) {
     const {action,id,index='0'}=button.dataset;
-    if(action==='site-filter'){siteFilter=!siteFilter;localStorage.setItem('credmemo-site-filter',siteFilter?'on':'off');render();return;}
+    if(action==='search-toggle')return searchPanel($('#search-panel').hidden);
+    if(action==='search-close')return searchPanel(false);
     if(action==='token-options'){const details=$('.advanced-options',button.closest('.token-item'));details.hidden=false;details.open=!details.open;return;}
     if(action==='advance'){const token=state.codes[id]?.[Number(index)];if(!token)return;button.disabled=true;try{await request('advance',{id,index:Number(index),counter:token.counter,version:state.entries.find(entry=>entry.id===id)?.version});await loadEntries();toast(t('counterAdvanced'));}catch(error){await loadEntries();throw error;}finally{if(button.isConnected)button.disabled=false;}return;}
     if(action==='scan-page'||action==='scan-entry'){
@@ -264,7 +269,7 @@ import { matchesCurrentSite, moveVisible } from './list-order.ts';
     if(action==='language'){setLanguage(I18N.language==='zh'?'en':'zh');return;}
     if(action==='theme'){theme=document.documentElement.dataset.theme==='dark'?'light':'dark';localStorage.setItem('credmemo-theme',theme);applyTheme();toast(t(theme));return;}
     if(action==='toggle-password'){const input=document.getElementById(button.dataset.target);input.type=input.type==='password'?'text':'password';$('use',button).setAttribute('href',`/static/icons.svg#${input.type==='password'?'eye':'eye-off'}`);return;}
-    if(action==='clear'){$('#search').value='';render();return;}
+    if(action==='clear'){$('#search').value='';render();$('#search').focus();return;}
     if(action==='new'||action==='edit')return editEntry(id);
     if(action==='detail')return detail(id);
     if(action==='show-qr')return showQr(id,index);
@@ -310,10 +315,17 @@ import { matchesCurrentSite, moveVisible } from './list-order.ts';
     if(input.id==='theme-select'){theme=input.value;localStorage.setItem('credmemo-theme',theme);applyTheme();return;}
     if(input.id==='language-select'){setLanguage(input.value);settings();return;}
     if(input.id==='import-file'){
-      const file=input.files[0];transferFile=null;$('#transfer-error').hidden=true;$('#restore-password-field').hidden=true;$('#restore-password').required=false;
+      const file=input.files[0];transferFile=null;$('#transfer-error').hidden=true;$('#restore-password-field').hidden=true;$('#restore-password').required=false;$('#restore-password').value='';$('#import-submit').disabled=true;$('#file-name').textContent=t('selectFile');$('#file-name').title='';
       if(!file)return;
-      try{if(file.size>10*1024*1024)throw new Error(t('too_large'));const data=JSON.parse(await file.text());if(!data||!((data.format==='credmemo-backup'&&data.version===2)||(data.format==='credmemo-export'&&data.version===1))||data.format==='credmemo-export'&&!Array.isArray(data.entries))throw new Error(t('import_invalid'));transferFile=data;$('#file-name').textContent=file.name;$('#restore-password-field').hidden=data.format!=='credmemo-backup';$('#restore-password').required=data.format==='credmemo-backup';}
-      catch(error){$('#transfer-error').textContent=error instanceof SyntaxError?t('import_invalid'):error.message;$('#transfer-error').hidden=false;input.value='';}
+      try{
+        if(file.size>10*1024*1024)throw new Error(t('too_large'));
+        const text=await file.text();
+        // 切换面板或重新选文件后，忽略之前的读取结果。
+        if(!input.isConnected||input.files[0]!==file)return;
+        const data=JSON.parse(text);
+        if(!data||!((data.format==='credmemo-backup'&&data.version===2)||(data.format==='credmemo-export'&&data.version===1))||data.format==='credmemo-export'&&!Array.isArray(data.entries))throw new Error(t('import_invalid'));
+        transferFile=data;$('#file-name').textContent=file.name;$('#file-name').title=file.name;$('#restore-password-field').hidden=data.format!=='credmemo-backup';$('#restore-password').required=data.format==='credmemo-backup';$('#import-submit').disabled=false;
+      }catch(error){if(!input.isConnected||input.files[0]!==file)return;$('#transfer-error').textContent=error instanceof SyntaxError?t('import_invalid'):error.message;$('#transfer-error').hidden=false;input.value='';}
     }
   });
   $('#search').addEventListener('input',render);
@@ -331,8 +343,8 @@ import { matchesCurrentSite, moveVisible } from './list-order.ts';
   ['pointerdown','keydown','touchstart'].forEach(name=>document.addEventListener(name,()=>state.lastActive=Date.now(),{passive:true}));
   document.addEventListener('keydown',event=>{
     const handle=event.target.closest('.drag-handle');if(handle&&['ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();const ids=$$('#entries [data-entry]').map(node=>node.dataset.entry),index=ids.indexOf(handle.dataset.id),next=ids[index+(event.key==='ArrowUp'?-1:1)];if(next)void reorder(handle.dataset.id,next);return;}
-    if(event.key==='Escape'){if($('#modal-root').children.length)closeModal();else closeDrawer();}
-    if(event.key==='/'&&state.unlocked&&!['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName)){event.preventDefault();$('#search').focus();}
+    if(event.key==='Escape'){if($('#modal-root').children.length)closeModal();else if($('#drawer-root').children.length)closeDrawer();else if(!$('#search-panel').hidden)searchPanel(false);}
+    if(event.key==='/'&&state.unlocked&&!$('#modal-root').children.length&&!$('#drawer-root').children.length&&!['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName)){event.preventDefault();searchPanel(true);}
     if(event.key==='Tab'){
       const root=$('#modal-root .modal')||$('#drawer-root .drawer');if(!root)return;
       const focusable=$$('button:not(:disabled),input:not(:disabled),select,textarea,a[href],summary',root).filter(el=>el.offsetParent!==null);

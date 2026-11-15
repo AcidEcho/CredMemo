@@ -1,4 +1,4 @@
-"""验证码类型、智能筛选及持久排序的真实扩展验收。"""
+"""验证码类型、展开搜索及持久排序的真实扩展验收。"""
 import json
 import tempfile
 import uuid
@@ -75,7 +75,7 @@ def run():
         assert request('get', {'id': ids['hotp']})['totps'][0]['counter'] == 1
         print('PASS: all six OTP types can be created; GOST and extended parameters save; HOTP advances explicitly', flush=True)
 
-        for title, url, label in [('工作 Example', '', ''), ('Label match', '', 'Example:fixture'), ('Example wrong site', 'https://unrelated.test', '')]:
+        for title, url, label in [('工作 Example', '', ''), ('Label match', '', 'Example:secondary'), ('Example wrong site', 'https://unrelated.test', '')]:
             request('save', {'entry': {'title': title, 'url': url, 'logins': [], 'totps': [{'secret': PUBLIC_SECRET, 'label': label}]}})
         site = ctx.new_page()
         site.route('https://**/*', lambda route: route.fulfill(body='<html><title>Example</title><input name="username"></html>', content_type='text/html'))
@@ -103,11 +103,14 @@ def run():
 
         view = popup()
         visible = lambda: view.evaluate('[...document.querySelectorAll("#entries [data-entry]")].map(node=>node.dataset.entry)')
-        assert len(visible()) == 4
-        assert view.evaluate('document.querySelector("#page-title").textContent') == '当前网站凭证'
+        assert len(visible()) == 9
+        assert view.evaluate('!document.querySelector("#page-title,[data-action=site-filter]")')
+        view.evaluate('document.querySelector("[data-action=search-toggle]").click()')
+        view.evaluate('const input=document.querySelector("#search");input.value="fixture";input.dispatchEvent(new Event("input",{bubbles:true}))')
+        assert len(visible()) == 6
         assert view.evaluate('!document.querySelector("[data-action=fill]")')
         names = view.evaluate('[...document.querySelectorAll(".entry-title h3")].map(node=>node.textContent)')
-        assert set(names) == {'TOTP fixture','HOTP fixture','工作 Example','Label match'}
+        assert set(names) == {kind.upper()+' fixture' for kind in ['totp','hotp','steam','battle','hex','hhex']}
         before = [entry['id'] for entry in request('list')['entries']]
         shown = visible()
         expected = before[:]
@@ -123,16 +126,16 @@ def run():
         dimensions = view.evaluate('({viewport:innerWidth,html:document.documentElement.scrollWidth,body:document.body.scrollWidth})')
         image = view.send('Page.captureScreenshot', {'format':'png'})['data']
         import base64
-        (screenshots / 'otp-smart-filter-dark.png').write_bytes(base64.b64decode(image))
+        (screenshots / 'otp-search-dark.png').write_bytes(base64.b64decode(image))
         assert dimensions == {'viewport':360,'html':360,'body':360}, dimensions
-        view.evaluate('document.querySelector("[data-action=site-filter]").click()')
+        view.evaluate('document.querySelector("[data-action=search-close]").click()')
         view.wait('document.querySelectorAll("#entries [data-entry]").length===9')
         view.evaluate('window.close()')
         view = popup()
         assert len(visible()) == 9
-        assert view.evaluate('document.querySelector("[data-action=site-filter]").getAttribute("aria-pressed")') == 'false'
+        assert view.evaluate('document.querySelector("#search-panel").hidden')
         view.evaluate('window.close()')
-        print('PASS: native toolbar filters by domain, name and label; filling remains strict; filtered keyboard sorting preserves hidden slots', flush=True)
+        print('PASS: native toolbar shows all websites; search expands on demand; keyboard sorting preserves hidden search slots', flush=True)
 
         client.reload()
         expect(client.locator('.entry-card')).to_have_count(9)
@@ -156,7 +159,7 @@ def run():
         expect(client.locator('.entry-card')).to_have_count(9)
         assert [entry['id'] for entry in request('list')['entries']] == after
         assert request('get', {'id': ids['hotp']})['totps'][0]['counter'] == 1
-        print('PASS: real mouse drag changes stored order; restart retains order, filter preference and HOTP counter', flush=True)
+        print('PASS: real mouse drag changes stored order; restart retains order and HOTP counter', flush=True)
         ctx.close()
 
 

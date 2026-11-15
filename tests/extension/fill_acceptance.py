@@ -110,7 +110,7 @@ def run():
         dimensions = popup.evaluate('({viewport:innerWidth,html:document.documentElement.scrollWidth,body:document.body.scrollWidth})')
         assert dimensions == {'viewport': 360, 'html': 360, 'body': 360}, dimensions
         assert popup.evaluate('[...document.querySelectorAll(".heading-actions button")].every(button=>!button.textContent.trim()&&!!button.getAttribute("aria-label"))')
-        assert popup.evaluate('parseFloat(getComputedStyle(document.querySelector("#page-title")).fontSize)===16')
+        assert popup.evaluate('!document.querySelector("#page-title,[data-action=site-filter]")&&document.querySelector("#search-panel").hidden')
         assert popup.evaluate('!document.querySelector("[data-action=favorite],[data-action=filter]")')
         popup.wait('!document.querySelector("[data-action=copy-code]").disabled')
         # 无头浏览器打开原生弹窗后可能没有焦点窗口，按最近浏览器窗口定位测试页。

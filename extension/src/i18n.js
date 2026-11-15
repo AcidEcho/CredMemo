@@ -116,12 +116,12 @@ export const I18N = (() => {
     backupDescription:'导出独立加密的备份文件，可在其他设备或新账户中恢复。',
     backupPassword:'备份密码',
     backupPasswordPlaceholder:'设置至少 12 位备份密码',
-    backupHint:'备份包含所有账号密码和 2FA 密钥。请独立保管备份密码，忘记后无法恢复。',
+    backupHint:'备份包含全部凭证，使用独立密码加密；忘记备份密码将无法恢复。',
     downloadBackup:'下载加密备份',
     backupDownloaded:'加密备份已下载',
     exportTitle:'导出可迁移的数据',
     exportDescription:'下载或复制 CredMemo JSON，可重新导入。',
-    exportWarning:'明文文件和剪贴板包含密码及 2FA 密钥。请仅保存在可信位置，使用后及时清理。',
+    exportWarning:'JSON 和剪贴板包含明文密码及 2FA 密钥，请妥善保管。',
     confirmMaster:'确认主密码',
     downloadJson:'下载 JSON',
     copyJson:'复制全部 JSON',
@@ -133,7 +133,7 @@ export const I18N = (() => {
     fileSelected:'已选择：{name}',
     restorePassword:'备份密码',
     restorePasswordPlaceholder:'输入创建备份时设置的密码',
-    importHint:'导入会追加凭证，不覆盖已有数据。重复导入会产生副本。',
+    importHint:'追加导入，不覆盖已有凭证；重复导入会产生副本。',
     importButton:'导入到凭证库',
     imported:'已导入 {n} 条凭证',
     selectedCount:'共 {n} 条凭证，可导入。',
@@ -298,12 +298,12 @@ export const I18N = (() => {
     backupDescription:'Download an encrypted backup to restore on another device or a new account.',
     backupPassword:'Backup password',
     backupPasswordPlaceholder:'Choose at least 12 characters',
-    backupHint:'Backups contain passwords and 2FA secrets. Store the backup password separately. A forgotten password cannot be recovered.',
+    backupHint:'All credentials are encrypted with a separate backup password. Keep it safe; it cannot be recovered.',
     downloadBackup:'Download encrypted backup',
     backupDownloaded:'Encrypted backup downloaded',
     exportTitle:'Take your credentials with you',
     exportDescription:'Download or copy CredMemo JSON, ready to import again.',
-    exportWarning:'Plaintext files and the clipboard contain passwords and 2FA secrets. Use a trusted location and clear them when finished.',
+    exportWarning:'JSON and clipboard exports contain plaintext passwords and 2FA secrets. Keep them safe.',
     confirmMaster:'Confirm master password',
     downloadJson:'Download JSON',
     copyJson:'Copy all JSON',
@@ -315,7 +315,7 @@ export const I18N = (() => {
     fileSelected:'Selected: {name}',
     restorePassword:'Backup password',
     restorePasswordPlaceholder:'Enter the password used for this backup',
-    importHint:'Import adds new credentials. Existing items stay intact. Importing twice creates duplicates.',
+    importHint:'Adds credentials without replacing existing items. Repeated imports create duplicates.',
     importButton:'Import into vault',
     imported:'Imported {n} credentials',
     selectedCount:'{n} credentials ready to import.',
@@ -383,8 +383,10 @@ export const I18N = (() => {
   });
   Object.assign(zh, {pageScanHint:'拖动框选完整二维码，按 Esc 取消',qr_selection_small:'请框选完整二维码。',qr_page_unavailable:'当前页面无法扫码，请在普通网页中打开插件后重试。',qr_page_changed:'页面已切换，请重新打开插件扫码。',qr_capture_failed:'无法截取当前网页，请稍后重新框选或打开插件重试。'});
   Object.assign(en, {pageScanHint:'Drag around the complete QR code. Press Esc to cancel.',qr_selection_small:'Select the complete QR code.',qr_page_unavailable:'Scanning is unavailable on this page. Open CredMemo on a regular website.',qr_page_changed:'The page changed. Open CredMemo and scan again.',qr_capture_failed:'Could not capture this page. Wait and select again, or reopen CredMemo.'});
-  Object.assign(zh, {otpType:'验证码类型',otp_totp:'TOTP · 时间',otp_hotp:'HOTP · 计数',otp_steam:'Steam',otp_battle:'Battle.net',otp_hex:'TOTP · HEX',otp_hhex:'HOTP · HEX',hexSecretPlaceholder:'输入十六进制密钥',counter:'计数',counterValue:'计数 {n}',nextCode:'下一计数验证码',counterAdvanced:'计数已递增',counter_exhausted:'计数已达上限，请重新绑定验证器',smartFilter:'当前网站智能筛选',currentSite:'当前网站凭证',showAllCredentials:'显示全部凭证',dragToSort:'拖拽排序，也可用上下方向键调整',orderSaved:'顺序已保存'});
-  Object.assign(en, {otpType:'Verification code type',otp_totp:'TOTP · Time',otp_hotp:'HOTP · Counter',otp_steam:'Steam',otp_battle:'Battle.net',otp_hex:'TOTP · HEX',otp_hhex:'HOTP · HEX',hexSecretPlaceholder:'Enter a hexadecimal secret',counter:'Counter',counterValue:'Counter {n}',nextCode:'Next counter code',counterAdvanced:'Counter advanced',counter_exhausted:'Counter limit reached. Rebind the authenticator.',smartFilter:'Filter for this website',currentSite:'This website',showAllCredentials:'Show all credentials',dragToSort:'Drag to reorder, or use the up and down arrow keys',orderSaved:'Order saved'});
+  Object.assign(zh, {otpType:'验证码类型',otp_totp:'TOTP · 时间',otp_hotp:'HOTP · 计数',otp_steam:'Steam',otp_battle:'Battle.net',otp_hex:'TOTP · HEX',otp_hhex:'HOTP · HEX',hexSecretPlaceholder:'输入十六进制密钥',counter:'计数',counterValue:'计数 {n}',nextCode:'下一计数验证码',counterAdvanced:'计数已递增',counter_exhausted:'计数已达上限，请重新绑定验证器',dragToSort:'拖拽排序，也可用上下方向键调整',orderSaved:'顺序已保存'});
+  Object.assign(en, {otpType:'Verification code type',otp_totp:'TOTP · Time',otp_hotp:'HOTP · Counter',otp_steam:'Steam',otp_battle:'Battle.net',otp_hex:'TOTP · HEX',otp_hhex:'HOTP · HEX',hexSecretPlaceholder:'Enter a hexadecimal secret',counter:'Counter',counterValue:'Counter {n}',nextCode:'Next counter code',counterAdvanced:'Counter advanced',counter_exhausted:'Counter limit reached. Rebind the authenticator.',dragToSort:'Drag to reorder, or use the up and down arrow keys',orderSaved:'Order saved'});
+  Object.assign(zh, {searchAction:'搜索凭证',closeSearch:'关闭搜索',backupTab:'备份',importTab:'导入',exportTab:'导出'});
+  Object.assign(en, {searchAction:'Search credentials',closeSearch:'Close search',backupTab:'Backup',importTab:'Import',exportTab:'Export'});
   let language = localStorage.getItem('credmemo-language') || 'zh';
   const t = (key, params={}) => Object.entries(params).reduce((s,[k,v])=>s.replaceAll(`{${k}}`,String(v)), (language==='en'?en:zh)[key] || key);
   function apply() {

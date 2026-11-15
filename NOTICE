@@ -26,11 +26,3 @@ This product includes @li0ard/gost 0.3.3 by Nikolai Konovalov and
 @noble/hashes 2.4.0 by Paul Miller and contributors, licensed under MIT.
 Projects: https://github.com/li0ard/gost and https://github.com/paulmillr/noble-hashes
 Licenses: licenses/gost.txt and licenses/noble-hashes.txt in the extension package.
-
-This product includes tldts 7.0.19 and tldts-core 7.5.3 by Remi Berson and
-contributors, licensed under MIT. Project: https://github.com/remusao/tldts
-Licenses: licenses/tldts.txt and licenses/tldts-core.txt in the extension package.
-The compiled Public Suffix List is derived from https://publicsuffix.org/list/,
-licensed under MPL-2.0; see licenses/public-suffix-list.txt. The bundled compiled
-source is available in the tldts 7.0.19 npm package:
-https://registry.npmjs.org/tldts/-/tldts-7.0.19.tgz
