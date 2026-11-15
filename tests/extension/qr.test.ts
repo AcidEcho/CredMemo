@@ -36,14 +36,14 @@ test('QR recognition decodes standard and inverted TOTP QR images locally', () =
 
 test('generated binding QR retains the secret, label, parameters and matching verification codes', async () => {
   for (const algorithm of ['SHA1', 'SHA256', 'SHA512'] as const) {
-    const token = { secret: publicSecret, label: '示例:fixture+test@example.test', algorithm, digits: 8 as const, period: 60 as const };
+    const token = { secret: publicSecret, label: '示例:fixture+test@example.test', type: 'totp' as const, algorithm, digits: 8 as const, period: 60 as const };
     const payload = totpQrPayload(token, 'Fallback');
     const { data, size } = image(payload);
     const decoded = decodeQrPixels(data, size, size);
     assert.deepEqual(decoded, token);
     assert.deepEqual(await generateTotp(decoded, 60000), await generateTotp(token, 60000));
   }
-  const raw = { secret: publicSecret, label: '', algorithm: 'SHA1' as const, digits: 6 as const, period: 30 as const };
+  const raw = { secret: publicSecret, label: '', type: 'totp' as const, algorithm: 'SHA1' as const, digits: 6 as const, period: 30 as const };
   assert.equal(totpFromQr(totpQrPayload(raw, 'Example & fixture')).label, 'Example & fixture');
   assert.throws(() => totpQrPayload({ ...raw, secret: 'INVALID' }, 'Fixture'), code('invalid_totp'));
 });

@@ -22,7 +22,7 @@ const vectors = [
 test('all RFC 6238 vectors match SHA1, SHA256, SHA512', async () => {
   for (const [seconds, ...expected] of vectors) {
     for (const [index, algorithm] of (['SHA1', 'SHA256', 'SHA512'] as const).entries()) {
-      const result = await generateTotp({ secret: secrets[algorithm], algorithm, digits: 8, period: 30, label: '' }, seconds * 1000);
+      const result = await generateTotp({ secret: secrets[algorithm], algorithm, type: 'totp', digits: 8, period: 30, label: '' }, seconds * 1000);
       assert.equal(result.code, expected[index]);
       assert.equal(result.expires_at, (Math.floor(seconds / 30) + 1) * 30);
     }
@@ -31,7 +31,7 @@ test('all RFC 6238 vectors match SHA1, SHA256, SHA512', async () => {
 
 test('6-digit output and 15/30/60-second boundaries', async () => {
   for (const period of [15, 30, 60] as const) {
-    const token: TotpItem = { label: '', secret: secrets.SHA1, algorithm: 'SHA1', digits: 6, period };
+    const token: TotpItem = { label: '', secret: secrets.SHA1, type: 'totp', algorithm: 'SHA1', digits: 6, period };
     const before = await generateTotp(token, period * 1000 - 1);
     const after = await generateTotp(token, period * 1000);
     assert.equal(before.expires_at, period);

@@ -95,15 +95,15 @@ def run():
         expect(page.locator('.entry-card')).to_have_count(1)
         expect(page.locator('.totp-code')).to_have_text(re.compile(r'\d{3} \d{3}'))
         first_id = request('list')['entries'][0]['id']
-        legacy = request('get', {'id': first_id})
-        legacy['logins'].append({'label': '', 'username': 'backup@example.test', 'password': str(uuid.uuid4())})
-        legacy['totps'].append(dict(legacy['totps'][0]))
-        for login, label in zip(legacy['logins'], ['主账号', '备用账号']):
+        multi_entry = request('get', {'id': first_id})
+        multi_entry['logins'].append({'label': '', 'username': 'backup@example.test', 'password': str(uuid.uuid4())})
+        multi_entry['totps'].append(dict(multi_entry['totps'][0]))
+        for login, label in zip(multi_entry['logins'], ['主账号', '备用账号']):
             login['label'] = label
-        for token, label in zip(legacy['totps'], ['邮箱验证器', '备用验证器']):
+        for token, label in zip(multi_entry['totps'], ['邮箱验证器', '备用验证器']):
             token['label'] = label
-        request('save', {'id': first_id, 'version': legacy['version'], 'entry': legacy})
-        print('PASS: simplified UI saves credentials; legacy multiple accounts and 2FA remain editable', flush=True)
+        request('save', {'id': first_id, 'version': multi_entry['version'], 'entry': multi_entry})
+        print('PASS: simplified UI saves credentials; multiple accounts and 2FA remain editable', flush=True)
 
         for title, username in [('开发平台', 'developer@example.test'), ('演示网站', 'hello@example.test')]:
             page.locator('.heading-actions [data-action=new]').click()

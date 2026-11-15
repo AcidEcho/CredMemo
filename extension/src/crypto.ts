@@ -26,7 +26,7 @@ export function password(value: unknown): string {
   return value;
 }
 
-export function newMasterPassword(value: unknown): string {
+export function masterPassword(value: unknown): string {
   if (typeof value !== 'string' || value.length < 6 || value.length > 12) fail('weak_master_password');
   return value;
 }

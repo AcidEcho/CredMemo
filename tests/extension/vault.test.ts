@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Vault, SerialQueue, VAULT_KEY, SESSION_KEY, IDLE_TIMEOUT } from '../../extension/src/vault.ts';
-import { dataKey, seal, unseal, unbase64, vaultContext, MAX_PLAINTEXT } from '../../extension/src/crypto.ts';
+import { dataKey, derive, seal, unseal, unbase64, vaultContext, wrapContext, MAX_PLAINTEXT } from '../../extension/src/crypto.ts';
 import { normalizeTotp } from '../../extension/src/totp.ts';
 import { OTP_TYPES } from '../../extension/src/otp-options.ts';
 import { credential, publicEntry } from '../../extension/src/validation.ts';
@@ -20,7 +20,7 @@ class MemoryStorage implements StorageArea {
 
 const sample = (): Credential => ({ title: 'Synthetic fixture', url: 'https://login.example.test', notes: '<script>fixture</script>',
   logins: [{ label: 'First', username: 'fixture@example.test', password: crypto.randomUUID() }, { label: 'Second', username: 'another@example.test', password: crypto.randomUUID() }],
-  totps: [{ label: 'RFC public test vector', secret: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', digits: 6, period: 30, algorithm: 'SHA1' }] });
+  totps: [{ label: 'RFC public test vector', secret: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', type: 'totp', digits: 6, period: 30, algorithm: 'SHA1' }] });
 
 async function fixture() {
   const local = new MemoryStorage(), session = new MemoryStorage();
@@ -64,6 +64,24 @@ test('account-only, 2FA-only and combined credentials persist independently', as
     assert.equal(actual.logins.length, shapes[index].logins.length);
     assert.equal(actual.totps.length, shapes[index].totps.length);
   }
+});
+
+test('master verification rejects an out-of-range password even when its wrapped key matches', async () => {
+  const { vault, local, session, master } = await fixture();
+  await vault.save(sample());
+  const envelope = local.values[VAULT_KEY] as VaultEnvelope;
+  const secret = crypto.randomUUID().slice(0, 13);
+  const key = (session.values[SESSION_KEY] as { key: string }).key;
+  envelope.wrappedKey = await seal(await derive(secret, envelope.kdf), { key }, wrapContext(envelope));
+  const before = structuredClone(local.values);
+  await assert.rejects(vault.export(secret), code('invalid_credentials'));
+  await assert.rejects(vault.changePassword(secret, master), code('invalid_credentials'));
+  assert.deepEqual(local.values, before);
+  assert.equal((await vault.status()).unlocked, true);
+  await vault.lock();
+  await assert.rejects(vault.unlock(secret), code('invalid_credentials'));
+  assert.equal((await vault.status()).unlocked, false);
+  assert.deepEqual(local.values, before);
 });
 
 test('initialization encrypts persistent values; restart retains data and requires unlock', async () => {
@@ -158,7 +176,7 @@ test('invalid or stale reorder requests and failed counter writes leave credenti
   assert.deepEqual((await vault.list()).entries.map(entry => entry.id), ids);
 });
 
-test('legacy vaults retain their previous latest-update ordering on first migration', async () => {
+test('stored array order is authoritative even when update timestamps differ', async () => {
   const { vault, local, session } = await fixture();
   for (const title of ['First', 'Second']) await vault.save({ ...sample(), title });
   const envelope = local.values[VAULT_KEY] as VaultEnvelope;
@@ -168,10 +186,10 @@ test('legacy vaults retain their previous latest-update ordering on first migrat
   entries[0].updated_at = 1; entries[1].updated_at = 2;
   envelope.data = await seal(key, { entries }, vaultContext(envelope));
   const ordered = (await vault.list()).entries;
-  assert.deepEqual(ordered.map(entry => entry.title), ['First', 'Second']);
+  assert.deepEqual(ordered.map(entry => entry.title), ['Second', 'First']);
   const ids = ordered.map(entry => entry.id);
   await vault.reorder([...ids].reverse(), ids);
-  assert.deepEqual((await vault.list()).entries.map(entry => entry.title), ['Second', 'First']);
+  assert.deepEqual((await vault.list()).entries.map(entry => entry.title), ['First', 'Second']);
 });
 
 test('updates and deletes reject stale versions without discarding current data', async () => {
@@ -288,13 +306,15 @@ test('credential validation rejects unsafe URLs and oversized fields', () => {
   assert.equal(credential({ ...sample(), url: 'example.test' }).url, 'https://example.test');
 });
 
-test('legacy imports discard retired groups and favorites while preserving credentials', async () => {
+test('imports accept only credential fields and never trust supplied IDs or versions', async () => {
   const { vault, master } = await fixture();
   const original = sample();
-  await vault.import([{ ...original, group: 'Legacy fixture', favorite: true }]);
+  const suppliedId = crypto.randomUUID();
+  await vault.import([{ ...original, id: suppliedId, version: 900, extra: { unexpected: true } }]);
   const [entry] = (await vault.list()).entries;
-  assert.ok(!('group' in entry));
-  assert.ok(!('favorite' in entry));
+  assert.notEqual(entry.id, suppliedId);
+  assert.equal(entry.version, 1);
+  assert.ok(!('extra' in entry));
   assert.deepEqual((await vault.get(entry.id)).logins, original.logins);
   assert.deepEqual((await vault.export(master)).entries[0], original);
 });

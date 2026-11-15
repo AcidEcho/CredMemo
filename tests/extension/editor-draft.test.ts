@@ -6,7 +6,7 @@ import { editorDraft } from '../../extension/src/editor-draft.ts';
 const draft = () => ({ id: '', version: 0, tokenIndex: 0, entry: {
   title: '', url: 'unfinished address', notes: 'Unsaved note',
   logins: [{ label: '', username: '', password: randomUUID() }],
-  totps: [{ label: '', secret: '', digits: 6, period: 30, algorithm: 'SHA1' }],
+  totps: [{ label: '', secret: '', type: 'totp', digits: 6, period: 30, algorithm: 'SHA1' }],
 } });
 
 test('scan drafts preserve incomplete fields without requiring a savable credential', () => {

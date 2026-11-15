@@ -6,7 +6,7 @@ import type { TotpItem } from './types.ts';
 export function totpQrPayload(raw: TotpItem, fallbackLabel: string): string {
   const token = normalizeTotp({ ...raw });
   const label = token.label || fallbackLabel.slice(0, 100) || '2FA';
-  let secret = token.secret, type = token.type || 'totp';
+  let secret = token.secret, type = token.type;
   if (type === 'hex' || type === 'hhex') {
     let bits = 0, value = 0;
     secret = '';

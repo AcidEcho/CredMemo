@@ -92,27 +92,25 @@ def run():
         assert len(request('list')['entries']) == 3
         page.locator('#modal-root [data-action=close-modal]').first.click()
 
-        legacy = request('get', {'id': entries[0]['id']})
-        legacy['logins'] = [{'label': 'Legacy account', 'username': 'fixture@example.test', 'password': password}, {'label': 'Other', 'username': 'other@example.test', 'password': str(uuid.uuid4())}]
-        legacy['totps'] = [{'label': 'Legacy token', 'secret': PUBLIC_SECRET, 'digits': 8, 'period': 60, 'algorithm': 'SHA256'}, {'label': 'Other', 'secret': PUBLIC_SECRET, 'digits': 6, 'period': 30, 'algorithm': 'SHA1'}]
-        legacy['favorite'] = True
-        request('save', {'id': legacy['id'], 'version': legacy['version'], 'entry': legacy})
-        page.locator(f'[data-entry="{legacy["id"]}"] [data-action=edit]').click()
+        multi_entry = request('get', {'id': entries[0]['id']})
+        multi_entry['logins'] = [{'label': 'Primary account', 'username': 'fixture@example.test', 'password': password}, {'label': 'Other', 'username': 'other@example.test', 'password': str(uuid.uuid4())}]
+        multi_entry['totps'] = [{'label': 'Primary token', 'secret': PUBLIC_SECRET, 'type': 'totp', 'digits': 8, 'period': 60, 'algorithm': 'SHA256'}, {'label': 'Other', 'secret': PUBLIC_SECRET, 'type': 'totp', 'digits': 6, 'period': 30, 'algorithm': 'SHA1'}]
+        request('save', {'id': multi_entry['id'], 'version': multi_entry['version'], 'entry': multi_entry})
+        page.locator(f'[data-entry="{multi_entry["id"]}"] [data-action=edit]').click()
         expect(page.locator('.login-item')).to_have_count(2)
         expect(page.locator('.token-item')).to_have_count(2)
-        page.locator('#entry-notes').fill('Preserve legacy configuration'); save()
-        preserved = request('get', {'id': legacy['id']})
-        assert preserved['logins'] == legacy['logins'] and preserved['totps'] == legacy['totps']
-        assert 'favorite' not in preserved
-        print('PASS: invalid input preserves saved data; legacy multi-item credentials, labels and special TOTP settings survive editing; retired favorites are discarded', flush=True)
+        page.locator('#entry-notes').fill('Preserve multiple accounts and 2FA settings'); save()
+        preserved = request('get', {'id': multi_entry['id']})
+        assert preserved['logins'] == multi_entry['logins'] and preserved['totps'] == multi_entry['totps']
+        print('PASS: invalid input preserves saved data; multiple accounts, 2FA labels and special TOTP settings survive editing', flush=True)
         expect(page.locator('[data-action=favorite], [data-action=filter]')).to_have_count(0)
-        page.locator(f'[data-entry="{legacy["id"]}"] [data-action=detail]').click()
+        page.locator(f'[data-entry="{multi_entry["id"]}"] [data-action=detail]').click()
         for index, token in enumerate(preserved['totps']):
             if index:
                 page.locator('#drawer-root [data-action=close-drawer]').click()
                 page.locator('.topbar [data-action=theme]').click()
                 page.locator('.topbar [data-action=language]').click()
-                page.locator(f'[data-entry="{legacy["id"]}"] [data-action=detail]').click()
+                page.locator(f'[data-entry="{multi_entry["id"]}"] [data-action=detail]').click()
             page.locator(f'#drawer-root [data-action=show-qr][data-index="{index}"]').click()
             canvas = page.locator('#totp-qr')
             expect(canvas).to_be_visible()
@@ -130,7 +128,7 @@ def run():
             page.screenshot(path=str(ROOT / 'release/screenshots' / f'binding-qr-{index}.png'),animations='disabled')
             page.locator('#modal-root [data-action=close-modal]').click()
         page.locator('#drawer-root [data-action=close-drawer]').click()
-        page.locator(f'[data-entry="{legacy["id"]}"] [data-action=show-qr]').click()
+        page.locator(f'[data-entry="{multi_entry["id"]}"] [data-action=show-qr]').click()
         expect(page.locator('#totp-qr')).to_be_visible()
         request('lock')
         expect(page.locator('#totp-qr')).to_have_count(0)

@@ -10,10 +10,9 @@ export function otpOptions(raw: Record<string, unknown>): Pick<TotpItem, 'digits
   if (!OTP_TYPES.includes(type as OtpType) || !OTP_ALGORITHMS.includes(algorithm as OtpAlgorithm)
     || !Number.isInteger(digits) || digits < 1 || digits > 10
     || !Number.isSafeInteger(period) || period < 1) fail('invalid_totp');
-  const options = { digits: type === 'steam' ? 5 : type === 'battle' ? 8 : digits, period, algorithm: algorithm as OtpAlgorithm };
-  if (type === 'totp') return options;
-  if (!counterBased(String(type))) return { ...options, type: type as OtpType };
+  const options = { type: type as OtpType, digits: type === 'steam' ? 5 : type === 'battle' ? 8 : digits, period, algorithm: algorithm as OtpAlgorithm };
+  if (!counterBased(String(type))) return options;
   const counter = Number(raw.counter ?? 0);
   if (!Number.isSafeInteger(counter) || counter < 0) fail('invalid_totp');
-  return { ...options, type: type as OtpType, counter };
+  return { ...options, counter };
 }

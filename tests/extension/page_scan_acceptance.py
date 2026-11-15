@@ -105,7 +105,7 @@ def run():
         if not saved:raise AssertionError(overlay.get_attribute('aria-label'))
         entry=request('get',{'id':saved['id']})
         assert entry['url']=='https://qr.example.test' and entry['logins']==[]
-        assert entry['totps'][0]=={'label':'Example:fixture','secret':PUBLIC_SECRET,'digits':8,'period':60,'algorithm':'SHA256'}
+        assert entry['totps'][0]=={'label':'Example:fixture','secret':PUBLIC_SECRET,'type':'totp','digits':8,'period':60,'algorithm':'SHA256'}
         for _ in range(100):
             target=next((item for item in cdp.send('Target.getTargets')['targetInfos'] if item['url']==base+'popup.html' and item['targetId']!=source_target),None)
             if target:break

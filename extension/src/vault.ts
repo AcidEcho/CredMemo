@@ -1,4 +1,4 @@
-import { base64, createBackup, dataKey, derive, newKdf, newMasterPassword, openBackup, seal, unbase64, unseal, validateEnvelope, vaultContext, wrapContext } from './crypto.ts';
+import { base64, createBackup, dataKey, derive, newKdf, masterPassword, openBackup, seal, unbase64, unseal, validateEnvelope, vaultContext, wrapContext } from './crypto.ts';
 import { fail, type Entry, type StorageArea, type VaultEnvelope, type VaultSession } from './types.ts';
 import { credential, exportEntry, importEntries, publicEntry, storedEntries } from './validation.ts';
 import { generateTotp } from './totp.ts';
@@ -46,13 +46,13 @@ export class Vault {
 
   async initialize(secret: unknown) {
     if (await this.envelope()) fail('already_initialized');
-    const master = newMasterPassword(secret);
+    const master = masterPassword(secret);
     const raw = crypto.getRandomValues(new Uint8Array(32));
     const kdf = newKdf();
     const envelope: VaultEnvelope = { format: 'credmemo-vault', version: 2, id: crypto.randomUUID(), revision: 1, kdf,
       wrappedKey: { iv: '', ciphertext: '' }, data: { iv: '', ciphertext: '' } };
     envelope.wrappedKey = await seal(await derive(master, kdf), { key: base64(raw) }, wrapContext(envelope));
-    envelope.data = await seal(await dataKey(raw), { entries: [], ordered: true }, vaultContext(envelope));
+    envelope.data = await seal(await dataKey(raw), { entries: [] }, vaultContext(envelope));
     await this.local.set({ [VAULT_KEY]: envelope });
     await this.remember(envelope, base64(raw));
     return { initialized: true, unlocked: true };
@@ -60,9 +60,7 @@ export class Vault {
 
   private async unwrap(envelope: VaultEnvelope, secret: unknown): Promise<string> {
     try {
-      // 旧版允许更长的主密码，升级后仍需支持解锁与验证原密码。
-      if (typeof secret !== 'string' || secret.length < 6 || secret.length > 256) fail('invalid_credentials');
-      const wrapped = await unseal<{ key: string }>(await derive(secret, envelope.kdf), envelope.wrappedKey, wrapContext(envelope));
+      const wrapped = await unseal<{ key: string }>(await derive(masterPassword(secret), envelope.kdf), envelope.wrappedKey, wrapContext(envelope));
       unbase64(wrapped.key, 32);
       return wrapped.key;
     } catch { return fail('invalid_credentials'); }
@@ -98,9 +96,8 @@ export class Vault {
     if (!envelope) fail('unauthorized');
     const key = await dataKey(unbase64(await this.sessionKey(envelope), 32));
     try {
-      const content = await unseal<{ entries: unknown; ordered?: boolean }>(key, envelope.data, vaultContext(envelope));
+      const content = await unseal<{ entries: unknown }>(key, envelope.data, vaultContext(envelope));
       const entries = storedEntries(content.entries);
-      if (!content.ordered) entries.sort((a, b) => b.updated_at - a.updated_at);
       return { envelope, key, entries };
     } catch { return fail('vault_corrupt'); }
   }
@@ -111,7 +108,7 @@ export class Vault {
     await this.sessionKey(latest);
     if (entries.length > 5000) fail('vault_full');
     const next = { ...latest, revision: latest.revision + 1 };
-    next.data = await seal(current.key, { entries, ordered: true }, vaultContext(next));
+    next.data = await seal(current.key, { entries }, vaultContext(next));
     try { await this.local.set({ [VAULT_KEY]: next }); }
     catch { return fail('storage_failed'); }
   }
@@ -218,7 +215,7 @@ export class Vault {
 
   async changePassword(currentPassword: unknown, nextPassword: unknown) {
     const { envelope } = await this.access();
-    const next = newMasterPassword(nextPassword);
+    const next = masterPassword(nextPassword);
     const raw = await this.unwrap(envelope, currentPassword);
     const kdf = newKdf();
     const changed = { ...envelope, kdf };

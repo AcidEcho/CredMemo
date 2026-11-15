@@ -13,7 +13,7 @@ export interface TotpItem {
   digits: number;
   period: number;
   algorithm: OtpAlgorithm;
-  type?: OtpType;
+  type: OtpType;
   counter?: number;
 }
 
