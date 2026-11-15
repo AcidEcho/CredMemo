@@ -1,6 +1,8 @@
 import { I18N } from './i18n.js';
 import QRCode from 'qrcode';
 import { totpQrPayload } from './totp-qr.ts';
+import { OTP_TYPES, OTP_ALGORITHMS, counterBased } from './otp-options.ts';
+import { matchesCurrentSite, moveVisible } from './list-order.ts';
 (() => {
   'use strict';
   const {t} = I18N;
@@ -17,6 +19,9 @@ import { totpQrPayload } from './totp-qr.ts';
   let selected = null;
   let modalOpener = null;
   let transferFile = null;
+  let siteFilter = localStorage.getItem('credmemo-site-filter') !== 'off';
+  let draggedId = null;
+  let sorting = false;
   function applyTheme() {
     const resolved = theme==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):theme;
     document.documentElement.dataset.theme = resolved;
@@ -83,20 +88,23 @@ import { totpQrPayload } from './totp-qr.ts';
   function domain(url) { try {return new URL(url).hostname.replace(/^www\./,'');} catch{return '';} }
   function entryIcon(entry) {const color=[...entry.title].reduce((sum,ch)=>sum+ch.codePointAt(0),0)%5;return `<span class="service-icon color-${color}">${escape(entry.title.slice(0,1).toUpperCase())}</span>`;}
   function tokenBlock(id,index=0) {
-    return `<div class="totp-block" data-token="${id}:${index}"><div class="totp-header"><span>${icon('shield')}${escape(t('totpLabel'))}</span><span class="token-period"></span></div><div class="totp-body"><span class="totp-code">••• •••</span>${iconButton('copy','copy-code','copyCode',`data-id="${id}" data-index="${index}"`)}${iconButton('scan','show-qr','showQr',`data-id="${id}" data-index="${index}"`)}<div class="countdown"><svg viewBox="0 0 28 28"><circle class="track" cx="14" cy="14" r="12"/><circle class="progress" cx="14" cy="14" r="12"/></svg><span>—</span></div></div></div>`;
+    const type=state.entries.find(entry=>entry.id===id)?.totps[index]?.type||'totp';
+    return `<div class="totp-block" data-token="${id}:${index}"><div class="totp-header"><span>${icon('shield')}${escape(type==='totp'?t('totpLabel'):t('otp_'+type))}</span><span class="token-period"></span></div><div class="totp-body"><span class="totp-code">••• •••</span>${iconButton('copy','copy-code','copyCode',`data-id="${id}" data-index="${index}"`)}${iconButton('scan','show-qr','showQr',`data-id="${id}" data-index="${index}"`)}${counterBased(type)?iconButton('refresh','advance','nextCode',`data-id="${id}" data-index="${index}"`):'<div class="countdown"><svg viewBox="0 0 28 28"><circle class="track" cx="14" cy="14" r="12"/><circle class="progress" cx="14" cy="14" r="12"/></svg><span>—</span></div>'}</div></div>`;
   }
   function renderCard(entry) {
     const id=entry.id,first=entry.logins[0];
     const login=first?`<div class="entry-account">${icon('user')}<span title="${escape(first.username)}">${escape(first.username)}</span>${iconButton('copy','copy-username','copyUsername',`data-id="${id}"`)}</div><div class="entry-password">${icon('lock')}<span>••••••••••</span>${iconButton('eye','reveal-card','showPassword',`data-id="${id}"`)}${iconButton('copy','copy-password','copyPassword',`data-id="${id}" data-index="0"`)}</div>`:'';
     const footer=[entry.logins.length>1?`<span class="tag-count">${escape(t('accountCount',{n:entry.logins.length}))}</span>`:'',entry.totps.length>1?`<span class="tag-count">${escape(t('moreTokens',{n:entry.totps.length-1}))} 2FA</span>`:'',matchesSite(entry)&&entry.logins.length?`<button class="text-button fill-button" data-action="fill" data-id="${id}">${escape(t('fill'))}</button>`:''].join('');
-    return `<article class="entry-card" data-entry="${id}"><div class="entry-card-top"><button class="entry-card-top" data-action="detail" data-id="${id}" aria-label="${escape(t('viewDetails'))}" style="padding:0;text-align:left;flex:1;min-width:0">${entryIcon(entry)}<div class="entry-title"><h3>${escape(entry.title)}</h3>${entry.url?`<small>${escape(domain(entry.url))}</small>`:''}</div></button><span class="card-actions">${iconButton('edit','edit','editCredential',`data-id="${id}"`)}${iconButton('trash','delete','deleteCredential',`data-id="${id}"`,'delete-button')}</span></div>${login}${entry.totps.length?tokenBlock(id):''}${footer?`<div class="entry-card-footer">${footer}</div>`:''}</article>`;
+    return `<article class="entry-card" data-entry="${id}"><div class="entry-card-top">${iconButton('grip','reorder-entry','dragToSort',`draggable="true" data-id="${id}"`,'drag-handle')}<button class="entry-card-top" data-action="detail" data-id="${id}" aria-label="${escape(t('viewDetails'))}" style="padding:0;text-align:left;flex:1;min-width:0">${entryIcon(entry)}<div class="entry-title"><h3>${escape(entry.title)}</h3>${entry.url?`<small>${escape(domain(entry.url))}</small>`:''}</div></button><span class="card-actions">${iconButton('edit','edit','editCredential',`data-id="${id}"`)}${iconButton('trash','delete','deleteCredential',`data-id="${id}"`,'delete-button')}</span></div>${login}${entry.totps.length?tokenBlock(id):''}${footer?`<div class="entry-card-footer">${footer}</div>`:''}</article>`;
   }
   function render() {
     const entries=state.entries;
     const query=$('#search').value.trim().toLowerCase();
-    const filtered=entries.filter(entry=>(!query||[entry.title,entry.url,...entry.logins.map(l=>l.username),...entry.totps.map(l=>l.label)].some(value=>value.toLowerCase().includes(query))));
-    filtered.sort((a,b)=>b.updated_at-a.updated_at);
-    $('#page-title').textContent=t('allCredentials');
+    const matched=target?entries.filter(entry=>matchesCurrentSite(entry,target.origin)):[];
+    const filtering=siteFilter&&matched.length>0;
+    const filtered=(filtering?matched:entries).filter(entry=>(!query||[entry.title,entry.url,...entry.logins.map(l=>l.username),...entry.totps.map(l=>l.label)].some(value=>value.toLowerCase().includes(query))));
+    $('#page-title').textContent=t(filtering?'currentSite':'allCredentials');
+    const filter=$('[data-action="site-filter"]');filter.disabled=!target;filter.setAttribute('aria-pressed',String(siteFilter));filter.title=t(filtering?'showAllCredentials':'smartFilter');
     $('#results-count').textContent=t('itemCount',{n:filtered.length});
     $('#entries').innerHTML=filtered.map(renderCard).join('');
     $('#empty-state').hidden=!!filtered.length;
@@ -119,12 +127,13 @@ import { totpQrPayload } from './totp-qr.ts';
     const now=(Date.now()+state.offset)/1000;
     $$('[data-token]').forEach(node=>{
       const [id,index]=node.dataset.token.split(':'),token=state.codes[id]?.[index];
-      const left=token?Math.max(0,Math.ceil(token.expires_at-now)):0;
-      $('.totp-code',node).textContent=left?token.code.slice(0,token.code.length/2)+' '+token.code.slice(token.code.length/2):'••• •••';
-      $('.countdown>span',node).textContent=left||'—';
-      $('.progress',node).style.strokeDashoffset=75.4*(1-(token?left/token.period:0));
-      $('.token-period',node).textContent=token?`${token.period}s`:'';
-      $('[data-action="copy-code"]',node).disabled=!left;
+      const event=token?.counter!==undefined,left=token?Math.max(0,Math.ceil(token.expires_at-now)):0,available=!!token&&(event||left>0);
+      node.dataset.longCode=String(!!token&&token.code.length>8);
+      $('.totp-code',node).textContent=available?(token.code.length<6?token.code:token.code.slice(0,Math.ceil(token.code.length/2))+' '+token.code.slice(Math.ceil(token.code.length/2))):'••• •••';
+      if($('.countdown',node)){$('.countdown>span',node).textContent=left||'—';$('.progress',node).style.strokeDashoffset=75.4*(1-(token?left/token.period:0));}
+      $('.token-period',node).textContent=token?(event?t('counterValue',{n:token.counter}):`${token.period}s`):'';
+      $('[data-action="copy-code"]',node).disabled=!available;
+      const advance=$('[data-action="advance"]',node);if(advance)advance.disabled=!token||token.counter>=Number.MAX_SAFE_INTEGER;
     });
   }
   async function copy(value) {
@@ -153,9 +162,9 @@ import { totpQrPayload } from './totp-qr.ts';
       <input type="hidden" data-field="label" value="${escape(item.label||'')}"></div>`;
   }
   function totpFields(item={},primary=false) {
-    const n=++itemSequence,custom=(item.digits??6)!==6||(item.period??30)!==30||(item.algorithm??'SHA1')!=='SHA1';
-    return `<div class="form-item token-item${primary?' primary-item':''}">${primary?'':iconButton('close','remove-item','removeItem','','remove-item')}<label class="field-label" for="token-secret-${n}">${escape(t('totpSecret'))}</label><div class="input-wrap"><input id="token-secret-${n}" data-field="secret" type="password" value="${escape(item.secret||'')}" maxlength="4096" autocomplete="off" placeholder="${escape(t('totpSecretPlaceholder'))}">${iconButton('scan','scan-entry','scanSelection')}${iconButton('eye','toggle-password','showPassword',`data-target="token-secret-${n}"`)}</div>
-      <input type="hidden" data-field="label" value="${escape(item.label||'')}"><details class="advanced-options" ${custom?'':'hidden'}><summary>${escape(t('advanced'))}</summary><div class="token-options">${[['digits',[6,8]],['period',[15,30,60]],['algorithm',['SHA1','SHA256','SHA512']]].map(([name,options])=>`<label for="token-${name}-${n}">${escape(t(name))}<select class="select" id="token-${name}-${n}" data-field="${name}">${options.map(value=>`<option value="${value}" ${String(item[name]??(name==='digits'?6:name==='period'?30:'SHA1'))===String(value)?'selected':''}>${value}${name==='period'?'s':''}</option>`).join('')}</select></label>`).join('')}</div></details></div>`;
+    const n=++itemSequence,type=item.type||'totp',event=counterBased(type),custom=event||(item.digits??6)!==6||(item.period??30)!==30||(item.algorithm??'SHA1')!=='SHA1';
+    return `<div class="form-item token-item${primary?' primary-item':''}">${primary?'':iconButton('close','remove-item','removeItem','','remove-item')}<div class="token-heading"><label class="field-label" for="token-secret-${n}">${escape(t('totpSecret'))}</label><select class="select token-type" data-field="type" aria-label="${escape(t('otpType'))}">${OTP_TYPES.map(value=>`<option value="${value}" ${type===value?'selected':''}>${escape(t('otp_'+value))}</option>`).join('')}</select>${iconButton('settings','token-options','advanced')}</div><div class="input-wrap"><input id="token-secret-${n}" data-field="secret" type="password" value="${escape(item.secret||'')}" maxlength="4096" autocomplete="off" placeholder="${escape(t(type==='hex'||type==='hhex'?'hexSecretPlaceholder':'totpSecretPlaceholder'))}">${iconButton('scan','scan-entry','scanSelection')}${iconButton('eye','toggle-password','showPassword',`data-target="token-secret-${n}"`)}</div>
+      <input type="hidden" data-field="label" value="${escape(item.label||'')}"><details class="advanced-options" ${custom?'':'hidden'} ${event?'open':''}><summary>${escape(t('advanced'))}</summary><div class="token-options"><label class="digits-option">${escape(t('digits'))}<input class="input" data-field="digits" type="number" required min="1" max="10" step="1" value="${item.digits??(type==='steam'?5:type==='battle'?8:6)}" ${['steam','battle'].includes(type)?'readonly':''}></label><label class="period-option" ${event?'hidden':''}>${escape(t('period'))}<input class="input" data-field="period" type="number" required ${event?'disabled':''} min="1" step="1" value="${item.period??30}"></label><label class="counter-option" ${event?'':'hidden'}>${escape(t('counter'))}<input class="input" data-field="counter" type="number" required ${event?'':'disabled'} min="0" max="9007199254740991" step="1" value="${item.counter??0}"></label><label>${escape(t('algorithm'))}<select class="select" data-field="algorithm">${OTP_ALGORITHMS.map(value=>`<option value="${value}" ${value===(item.algorithm||'SHA1')?'selected':''}>${value.replace('GOST3411_2012_','GOST ')}</option>`).join('')}</select></label></div></details></div>`;
   }
   async function editEntry(id,draft=null) {
     const entry=draft?{...draft.entry,version:draft.version}:id?await request('get',{id}):null;
@@ -171,7 +180,7 @@ import { totpQrPayload } from './totp-qr.ts';
     $('#entry-title').focus();
   }
   function editorValues(form) {
-    const readItems=selector=>$$(selector,form).map(node=>Object.fromEntries($$('[data-field]',node).map(input=>[input.dataset.field,['digits','period'].includes(input.dataset.field)?Number(input.value):input.value])));
+    const readItems=selector=>$$(selector,form).map(node=>Object.fromEntries($$('[data-field]',node).map(input=>[input.dataset.field,['digits','period','counter'].includes(input.dataset.field)?Number(input.value):input.value])));
     return {title:$('#entry-title').value,url:$('#entry-url').value,notes:$('#entry-notes').value,logins:readItems('.login-item'),totps:readItems('.token-item')};
   }
   async function saveEntry(form) {
@@ -180,7 +189,7 @@ import { totpQrPayload } from './totp-qr.ts';
     if(!data.logins.length&&!data.totps.length)throw new Error(t('credential_required'));
     const id=form.dataset.id;
     await request('save',{id:id||undefined,entry:data,version:id?Number(form.dataset.version):undefined});
-    if(!id){$('#search').value='';}
+    if(!id){$('#search').value='';if(target&&!matchesCurrentSite({...data,id:''},target.origin))siteFilter=false;}
     closeModal();toast(t('saved'));await loadEntries();
   }
   async function showQr(id,index) {
@@ -230,6 +239,9 @@ import { totpQrPayload } from './totp-qr.ts';
   async function lockVault() {try{await request('lock');}catch{}finally{showAuth();}}
   async function action(button) {
     const {action,id,index='0'}=button.dataset;
+    if(action==='site-filter'){siteFilter=!siteFilter;localStorage.setItem('credmemo-site-filter',siteFilter?'on':'off');render();return;}
+    if(action==='token-options'){const details=$('.advanced-options',button.closest('.token-item'));details.hidden=false;details.open=!details.open;return;}
+    if(action==='advance'){const token=state.codes[id]?.[Number(index)];if(!token)return;button.disabled=true;try{await request('advance',{id,index:Number(index),counter:token.counter,version:state.entries.find(entry=>entry.id===id)?.version});await loadEntries();toast(t('counterAdvanced'));}catch(error){await loadEntries();throw error;}finally{if(button.isConnected)button.disabled=false;}return;}
     if(action==='scan-page'||action==='scan-entry'){
       const form=action==='scan-entry'?$('#entry-form'):null;
       const editor=form?{id:form.dataset.id,version:Number(form.dataset.version||0),entry:editorValues(form),tokenIndex:$$('.token-item',form).indexOf(button.closest('.token-item'))}:undefined;
@@ -261,7 +273,7 @@ import { totpQrPayload } from './totp-qr.ts';
     if(action==='lock')return lockVault();
     if(action==='reload')return loadEntries();
     if(action==='remove-item'){const item=button.closest('.form-item');if(!item.classList.contains('primary-item'))item.remove();return;}
-    if(action==='copy-code'){const token=state.codes[id]?.[Number(index)];if(!token||token.expires_at*1000<=Date.now()+state.offset){await refreshCodes();return;}return copy(token.code);}
+    if(action==='copy-code'){const token=state.codes[id]?.[Number(index)];if(!token||token.expires_at&&token.expires_at*1000<=Date.now()+state.offset){await refreshCodes();return;}return copy(token.code);}
     if(action==='copy-username')return copy(state.entries.find(e=>e.id===id)?.logins[Number(index)]?.username||'');
     if(action==='copy-password'){const entry=selected?.id===id?selected:await request('get',{id});return copy(entry.logins[Number(index)].password);}
     if(action==='reveal-card'){const value=$('.entry-password>span',button.closest('.entry-card'));if(value.dataset.visible){value.textContent='••••••••••';delete value.dataset.visible;return;}const data=await request('get',{id});value.textContent=data.logins[0].password;value.style.cssText='letter-spacing:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:65%;font-size:11px';value.dataset.visible='true';setTimeout(()=>{if(value.isConnected){value.textContent='••••••••••';delete value.dataset.visible;}},15000);return;}
@@ -294,6 +306,7 @@ import { totpQrPayload } from './totp-qr.ts';
   });
   document.addEventListener('change',async event=>{
     const input=event.target;
+    if(input.matches('.token-type')){const row=input.closest('.token-item'),type=input.value,event=counterBased(type),digits=$('[data-field="digits"]',row);$('.period-option',row).hidden=event;$('.counter-option',row).hidden=!event;$('[data-field=period]',row).disabled=event;$('[data-field=counter]',row).disabled=!event;digits.readOnly=['steam','battle'].includes(type);if(type==='steam')digits.value=5;else if(type==='battle')digits.value=8;else if(digits.value==='5')digits.value=6;$('[data-field="secret"]',row).placeholder=t(['hex','hhex'].includes(type)?'hexSecretPlaceholder':'totpSecretPlaceholder');if(event){const details=$('.advanced-options',row);details.hidden=false;details.open=true;}return;}
     if(input.id==='theme-select'){theme=input.value;localStorage.setItem('credmemo-theme',theme);applyTheme();return;}
     if(input.id==='language-select'){setLanguage(input.value);settings();return;}
     if(input.id==='import-file'){
@@ -304,8 +317,20 @@ import { totpQrPayload } from './totp-qr.ts';
     }
   });
   $('#search').addEventListener('input',render);
+  async function reorder(from,to){
+    if(sorting||from===to)return;
+    sorting=true;
+    try{const original=state.entries.map(entry=>entry.id),visible=$$('#entries [data-entry]').map(node=>node.dataset.entry);await request('reorder',{ids:moveVisible(original,visible,from,to),expected_ids:original});await loadEntries();$(`[data-action="reorder-entry"][data-id="${from}"]`)?.focus();toast(t('orderSaved'));}
+    catch(error){if(error.name!=='AbortError'){toast(error.message,true);await loadEntries();}}
+    finally{sorting=false;}
+  }
+  $('#entries').addEventListener('dragstart',event=>{const handle=event.target.closest('.drag-handle');if(!handle||sorting){event.preventDefault();return;}draggedId=handle.dataset.id;event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',draggedId);});
+  $('#entries').addEventListener('dragover',event=>{const card=event.target.closest('[data-entry]');if(draggedId&&card){event.preventDefault();event.dataTransfer.dropEffect='move';$$('.drag-over').forEach(node=>node.classList.remove('drag-over'));card.classList.add('drag-over');}});
+  $('#entries').addEventListener('drop',event=>{const card=event.target.closest('[data-entry]');if(draggedId&&card){event.preventDefault();const from=draggedId;draggedId=null;$$('.drag-over').forEach(node=>node.classList.remove('drag-over'));void reorder(from,card.dataset.entry);}});
+  $('#entries').addEventListener('dragend',()=>{draggedId=null;$$('.drag-over').forEach(node=>node.classList.remove('drag-over'));});
   ['pointerdown','keydown','touchstart'].forEach(name=>document.addEventListener(name,()=>state.lastActive=Date.now(),{passive:true}));
   document.addEventListener('keydown',event=>{
+    const handle=event.target.closest('.drag-handle');if(handle&&['ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();const ids=$$('#entries [data-entry]').map(node=>node.dataset.entry),index=ids.indexOf(handle.dataset.id),next=ids[index+(event.key==='ArrowUp'?-1:1)];if(next)void reorder(handle.dataset.id,next);return;}
     if(event.key==='Escape'){if($('#modal-root').children.length)closeModal();else closeDrawer();}
     if(event.key==='/'&&state.unlocked&&!['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName)){event.preventDefault();$('#search').focus();}
     if(event.key==='Tab'){
@@ -322,7 +347,7 @@ import { totpQrPayload } from './totp-qr.ts';
     if(Date.now()-state.lastActive>=15*60*1000){lockVault();return;}
     if(state.lastActive>lastTouch&&Date.now()-lastTouch>=15000){lastTouch=Date.now();void request('touch').catch(()=>{});}
     tickCodes();
-    if((state.codeRetryAt&&Date.now()>=state.codeRetryAt)||Object.values(state.codes).flat().some(token=>token.expires_at*1000<=Date.now()+state.offset))refreshCodes();
+    if((state.codeRetryAt&&Date.now()>=state.codeRetryAt)||Object.values(state.codes).flat().some(token=>token.expires_at>0&&token.expires_at*1000<=Date.now()+state.offset))refreshCodes();
   },1000);
   window.addEventListener('pageshow',event=>{if(event.persisted)location.reload();});
   I18N.apply();applyTheme();

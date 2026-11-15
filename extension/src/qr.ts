@@ -29,10 +29,13 @@ export function totpFromQr(value: string): TotpItem {
   let url: URL, label: string;
   try { url = new URL(value); label = decodeURIComponent(url.pathname.slice(1)); }
   catch { return fail('invalid_totp'); }
-  if (url.hostname.toLowerCase() !== 'totp') fail('totp_only');
+  let type = url.hostname.toLowerCase();
+  if (!['totp', 'hotp', 'steam', 'battle', 'hex', 'hhex'].includes(type)) fail('totp_only');
+  if (type === 'totp' && url.searchParams.get('encoder') === 'steam') type = 'steam';
   return normalizeTotp({ secret: url.searchParams.get('secret') ?? '', label,
     digits: Number(url.searchParams.get('digits') ?? 6), period: Number(url.searchParams.get('period') ?? 30),
-    algorithm: (url.searchParams.get('algorithm') ?? 'SHA1').toUpperCase() });
+    algorithm: (url.searchParams.get('algorithm') ?? 'SHA1').toUpperCase(), type,
+    counter: Number(url.searchParams.get('counter') ?? 0) });
 }
 
 export function decodeQrPixels(data: Uint8ClampedArray, width: number, height: number): TotpItem {

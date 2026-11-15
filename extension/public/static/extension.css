@@ -109,3 +109,15 @@ html[data-surface="popup"] .totp-body [data-action="show-qr"]{min-width:25px}
 .binding-qr canvas{display:block;width:216px;height:216px;max-width:100%;margin:12px auto;background:#fff;border-radius:6px}
 .binding-qr p{font-size:12px;overflow-wrap:anywhere;margin:0}
 .binding-qr .qr-hint{font-size:10px;line-height:1.6;color:var(--muted);margin-top:10px}
+.site-filter[aria-pressed="true"]{color:var(--green);background:var(--green-wash)}
+html[data-surface="popup"] .entry-card-top>.drag-handle{min-width:16px;width:16px;height:28px;cursor:grab;color:var(--muted);margin-left:-5px;margin-right:-4px}
+.drag-handle:active{cursor:grabbing}
+.entry-card.drag-over{outline:2px solid var(--green);outline-offset:2px}
+.token-heading{display:flex;align-items:center;gap:5px;margin-bottom:1px}
+html[data-surface="popup"] .token-heading .field-label{margin:0;flex:1}
+html[data-surface="popup"] .token-heading .token-type{min-height:20px;max-width:145px;padding:1px 20px 1px 5px;font-size:10px}
+html[data-surface="popup"] .token-heading .icon-button{min-width:22px;height:20px}
+.token-options label{min-width:65px}
+html[data-surface="popup"] .token-options .input{margin-top:4px;padding:5px 7px;min-height:30px}
+html[data-surface="popup"] .totp-code{min-width:0;overflow-wrap:anywhere}
+html[data-surface="popup"] .totp-block[data-long-code="true"] .totp-code{font-size:17px;letter-spacing:.5px;white-space:normal}

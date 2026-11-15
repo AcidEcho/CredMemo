@@ -4,12 +4,17 @@ export interface LoginItem {
   password: string;
 }
 
+export type OtpType = 'totp' | 'hotp' | 'battle' | 'steam' | 'hex' | 'hhex';
+export type OtpAlgorithm = 'SHA1' | 'SHA256' | 'SHA512' | 'GOST3411_2012_256' | 'GOST3411_2012_512';
+
 export interface TotpItem {
   label: string;
   secret: string;
-  digits: 6 | 8;
-  period: 15 | 30 | 60;
-  algorithm: 'SHA1' | 'SHA256' | 'SHA512';
+  digits: number;
+  period: number;
+  algorithm: OtpAlgorithm;
+  type?: OtpType;
+  counter?: number;
 }
 
 export interface Credential {

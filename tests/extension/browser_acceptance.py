@@ -136,11 +136,9 @@ def run():
         page.locator('[data-action=clear]').click()
         expect(page.locator('.entry-card')).to_have_count(3)
         expect(page.locator('#group-filter, #sort, #site-context, #entry-group')).to_have_count(0)
-        updated = {entry['id']: entry['updated_at'] for entry in request('list')['entries']}
         visible = page.locator('.entry-card').evaluate_all('cards=>cards.map(card=>card.dataset.entry)')
-        timestamps = [updated[entry_id] for entry_id in visible]
-        assert timestamps == sorted(timestamps, reverse=True)
-        print('PASS: edit, removed favorites, search, empty-result reset and latest-update ordering without dropdowns', flush=True)
+        assert visible == [entry['id'] for entry in request('list')['entries']]
+        print('PASS: edit, removed favorites, search, empty-result reset and persistent ordering without dropdowns', flush=True)
 
         ctx.grant_permissions(['clipboard-read'])
         card.locator('[data-action=copy-username]').click()

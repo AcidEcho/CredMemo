@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Vault, SerialQueue, VAULT_KEY, SESSION_KEY, IDLE_TIMEOUT } from '../../extension/src/vault.ts';
-import { dataKey, seal, unseal, MAX_PLAINTEXT } from '../../extension/src/crypto.ts';
+import { dataKey, seal, unseal, unbase64, vaultContext, MAX_PLAINTEXT } from '../../extension/src/crypto.ts';
+import { normalizeTotp } from '../../extension/src/totp.ts';
+import { OTP_TYPES } from '../../extension/src/otp-options.ts';
 import { credential, publicEntry } from '../../extension/src/validation.ts';
 import type { StorageArea, Credential, VaultEnvelope } from '../../extension/src/types.ts';
 
@@ -89,6 +91,87 @@ test('list omits passwords and TOTP secrets, detail retains multiple accounts', 
   assert.ok(!('secret' in list[0].totps[0]));
   assert.deepEqual(list[0], publicEntry(await vault.get(id)));
   assert.match((await vault.codes()).codes[id][0].code, /^\d{6}$/);
+});
+
+test('HOTP advances only explicitly, rejects replayed clicks, and retains its counter after restart', async () => {
+  const { vault, local, master } = await fixture();
+  const token = normalizeTotp({ type: 'hotp', secret: sample().totps[0].secret });
+  const { id } = await vault.save({ ...sample(), totps: [token] });
+  assert.equal((await vault.codes()).codes[id][0].code, '755224');
+  assert.equal((await vault.codes()).codes[id][0].code, '755224');
+  const queue = new SerialQueue();
+  const result = await Promise.allSettled([0, 0].map(counter => queue.run(() => vault.advance(id, 0, counter, 1))));
+  assert.equal(result[0].status, 'fulfilled');
+  assert.equal(result[1].status, 'rejected');
+  assert.equal((await vault.codes()).codes[id][0].code, '287082');
+  const restarted = new Vault(local, new MemoryStorage());
+  await restarted.unlock(master);
+  assert.equal((await restarted.get(id)).totps[0].counter, 1);
+  await assert.rejects(restarted.advance(id, -1, 1, 2), code('invalid_input'));
+  const stale = await restarted.get(id);
+  await restarted.save({ ...stale, notes: 'Changed in another window' }, id, stale.version);
+  await assert.rejects(restarted.advance(id, 0, 1, stale.version), code('conflict'));
+  const current = await restarted.get(id);
+  await restarted.save({ ...current, totps: [{ ...token, counter: Number.MAX_SAFE_INTEGER }] }, id, current.version);
+  await assert.rejects(restarted.advance(id, 0, Number.MAX_SAFE_INTEGER, current.version + 1), code('counter_exhausted'));
+  await restarted.lock();
+  await assert.rejects(restarted.advance(id, 0, Number.MAX_SAFE_INTEGER, current.version + 1), code('unauthorized'));
+});
+
+test('custom ordering survives edits, restart, encrypted backup and restore with every OTP type', async () => {
+  const source = await fixture(), destination = await fixture();
+  for (const type of OTP_TYPES) {
+    const token = normalizeTotp({ secret: ['hex','hhex'].includes(type) ? '3132333435363738393031323334353637383930' : sample().totps[0].secret,
+      type, counter: 9, algorithm: 'GOST3411_2012_512', period: 45, digits: 7 });
+    await source.vault.save({ ...sample(), title: type, totps: [token] });
+  }
+  const before = (await source.vault.list()).entries.map(entry => entry.id);
+  const desired = [...before.slice(2), ...before.slice(0, 2)];
+  await source.vault.reorder(desired, before);
+  const entry = await source.vault.get(desired[1]);
+  await source.vault.save({ ...entry, notes: 'Edited after sorting' }, entry.id, entry.version);
+  const restarted = new Vault(source.local, new MemoryStorage());
+  await restarted.unlock(source.master);
+  assert.deepEqual((await restarted.list()).entries.map(entry => entry.id), desired);
+  const exported = await restarted.export(source.master), backupPassword = crypto.randomUUID();
+  await destination.vault.restore(backupPassword, await restarted.backup(backupPassword));
+  assert.deepEqual((await destination.vault.export(destination.master)).entries, exported.entries);
+});
+
+test('invalid or stale reorder requests and failed counter writes leave credentials intact', async () => {
+  const { vault, local } = await fixture();
+  for (const title of ['First', 'Second']) await vault.save({ ...sample(), title });
+  const entries = (await vault.list()).entries, ids = entries.map(entry => entry.id);
+  const before = structuredClone(local.values);
+  for (const next of [[ids[0],ids[0]], [ids[0]], [ids[0],crypto.randomUUID()]]) {
+    await assert.rejects(vault.reorder(next, ids), code('invalid_input'));
+  }
+  await assert.rejects(vault.reorder([...ids].reverse(), [...ids].reverse()), code('conflict'));
+  assert.deepEqual(local.values, before);
+  const token = normalizeTotp({ type: 'hotp', secret: sample().totps[0].secret });
+  const entry = await vault.get(ids[0]);
+  await vault.save({ ...entry, totps: [token] }, entry.id, entry.version);
+  local.rejectWrites = true;
+  await assert.rejects(vault.advance(entry.id, 0, 0, entry.version + 1), code('storage_failed'));
+  assert.equal((await vault.get(entry.id)).totps[0].counter, 0);
+  await assert.rejects(vault.reorder([...ids].reverse(), ids), code('storage_failed'));
+  assert.deepEqual((await vault.list()).entries.map(entry => entry.id), ids);
+});
+
+test('legacy vaults retain their previous latest-update ordering on first migration', async () => {
+  const { vault, local, session } = await fixture();
+  for (const title of ['First', 'Second']) await vault.save({ ...sample(), title });
+  const envelope = local.values[VAULT_KEY] as VaultEnvelope;
+  const key = await dataKey(unbase64((session.values[SESSION_KEY] as { key: string }).key, 32));
+  const content = await unseal<{ entries: unknown[] }>(key, envelope.data, vaultContext(envelope));
+  const entries = content.entries as ({ updated_at: number } & object)[];
+  entries[0].updated_at = 1; entries[1].updated_at = 2;
+  envelope.data = await seal(key, { entries }, vaultContext(envelope));
+  const ordered = (await vault.list()).entries;
+  assert.deepEqual(ordered.map(entry => entry.title), ['First', 'Second']);
+  const ids = ordered.map(entry => entry.id);
+  await vault.reorder([...ids].reverse(), ids);
+  assert.deepEqual((await vault.list()).entries.map(entry => entry.title), ['Second', 'First']);
 });
 
 test('updates and deletes reject stale versions without discarding current data', async () => {

@@ -1,5 +1,6 @@
 import { fail, type Credential } from './types.ts';
 import { object, text } from './validation.ts';
+import { otpOptions } from './otp-options.ts';
 
 export interface EditorDraft {
   id: string;
@@ -25,8 +26,9 @@ export function editorDraft(raw: unknown): EditorDraft {
     }),
     totps: entry.totps.map(value => {
       const item = object(value);
-      if (![6, 8].includes(Number(item.digits)) || ![15, 30, 60].includes(Number(item.period)) || !['SHA1', 'SHA256', 'SHA512'].includes(String(item.algorithm))) fail('invalid_input');
-      return { label: text(item.label, 100), secret: text(item.secret, 4096), digits: Number(item.digits), period: Number(item.period), algorithm: item.algorithm } as Credential['totps'][number];
+      let options;
+      try { options = otpOptions(item); } catch { return fail('invalid_input'); }
+      return { label: text(item.label, 100), secret: text(item.secret, 4096), ...options };
     }),
   } };
 }

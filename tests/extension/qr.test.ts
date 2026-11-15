@@ -48,13 +48,13 @@ test('generated binding QR retains the secret, label, parameters and matching ve
   assert.throws(() => totpQrPayload({ ...raw, secret: 'INVALID' }, 'Fixture'), code('invalid_totp'));
 });
 
-test('blank image, ordinary QR, malformed TOTP, HOTP and unsupported settings are rejected', () => {
+test('blank image, ordinary QR, malformed OTP and unsupported settings are rejected', () => {
   assert.throws(() => decodeQrPixels(new Uint8ClampedArray(100 * 100 * 4).fill(255), 100, 100), code('qr_not_found'));
   const { data, size } = image('https://example.test');
   assert.throws(() => decodeQrPixels(data, size, size), code('qr_not_totp'));
   assert.throws(() => totpFromQr('otpauth://totp/Test?secret=INVALID'), code('invalid_totp'));
-  assert.throws(() => totpFromQr(`otpauth://hotp/Test?secret=${publicSecret}`), code('totp_only'));
-  assert.throws(() => totpFromQr(`otpauth://totp/Test?secret=${publicSecret}&digits=7`), code('invalid_totp'));
+  assert.throws(() => totpFromQr(`otpauth://unknown/Test?secret=${publicSecret}`), code('totp_only'));
+  assert.throws(() => totpFromQr(`otpauth://totp/Test?secret=${publicSecret}&digits=11`), code('invalid_totp'));
 });
 
 test('unsupported image types and oversized files fail before image decoding', async () => {

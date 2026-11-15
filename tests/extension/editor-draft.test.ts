@@ -16,6 +16,14 @@ test('scan drafts preserve incomplete fields without requiring a savable credent
   assert.deepEqual(editorDraft(existing), existing);
 });
 
+test('incomplete HOTP scan drafts preserve counters and GOST parameters', () => {
+  const input = draft();
+  const token = { ...input.entry.totps[0], type: 'hotp', counter: 41, period: 45, digits: 7, algorithm: 'GOST3411_2012_256' };
+  input.entry.totps[0] = token;
+  assert.deepEqual(editorDraft(input).entry.totps[0], token);
+  assert.throws(() => editorDraft({ ...input, entry: { ...input.entry, totps: [{ ...token, counter: -1 }] } }), { code: 'invalid_input' });
+});
+
 test('scan drafts reject oversized data, invalid edit versions and missing target 2FA rows', () => {
   for (const input of [
     { ...draft(), tokenIndex: -1 }, { ...draft(), tokenIndex: 1 }, { ...draft(), tokenIndex: '0' },
@@ -24,6 +32,6 @@ test('scan drafts reject oversized data, invalid edit versions and missing targe
     { ...draft(), entry: { ...draft().entry, title: 'x'.repeat(151) } },
     { ...draft(), entry: { ...draft().entry, totps: [] } },
     { ...draft(), entry: { ...draft().entry, logins: Array(31).fill({}) } },
-    { ...draft(), entry: { ...draft().entry, totps: [{ secret: '', digits: 9, period: 30, algorithm: 'SHA1' }] } },
+    { ...draft(), entry: { ...draft().entry, totps: [{ secret: '', digits: 11, period: 30, algorithm: 'SHA1' }] } },
   ]) assert.throws(() => editorDraft(input), { code: 'invalid_input' });
 });

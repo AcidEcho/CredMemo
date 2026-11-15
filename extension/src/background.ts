@@ -111,6 +111,8 @@ async function handle(action: string, args: Record<string, unknown>) {
     case 'save': return vault.save(args.entry, args.id, args.version);
     case 'delete': return vault.remove(args.id, args.version);
     case 'codes': return vault.codes();
+    case 'advance': return vault.advance(args.id, args.index, args.counter, args.version);
+    case 'reorder': return vault.reorder(args.ids, args.expected_ids);
     case 'backup': return vault.backup(args.password);
     case 'export': return vault.export(args.password);
     case 'import': return vault.import(args.entries);

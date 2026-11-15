@@ -1,6 +1,6 @@
 {
   "name": "credmemo",
-  "version": "2.9.0",
+  "version": "2.10.0",
   "description": "本地加密保存账号密码与 2FA 的 Chrome 扩展",
   "license": "Apache-2.0",
   "repository": {
@@ -28,7 +28,9 @@
     "vite": "^7.2.2"
   },
   "dependencies": {
+    "@li0ard/gost": "0.3.3",
     "jsqr": "1.4.0",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "tldts": "7.0.19"
   }
 }

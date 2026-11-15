@@ -2,6 +2,7 @@ import { base64, createBackup, dataKey, derive, newKdf, newMasterPassword, openB
 import { fail, type Entry, type StorageArea, type VaultEnvelope, type VaultSession } from './types.ts';
 import { credential, exportEntry, importEntries, publicEntry, storedEntries } from './validation.ts';
 import { generateTotp } from './totp.ts';
+import { counterBased } from './otp-options.ts';
 
 export const VAULT_KEY = 'credmemo-vault';
 export const SESSION_KEY = 'credmemo-session';
@@ -51,7 +52,7 @@ export class Vault {
     const envelope: VaultEnvelope = { format: 'credmemo-vault', version: 2, id: crypto.randomUUID(), revision: 1, kdf,
       wrappedKey: { iv: '', ciphertext: '' }, data: { iv: '', ciphertext: '' } };
     envelope.wrappedKey = await seal(await derive(master, kdf), { key: base64(raw) }, wrapContext(envelope));
-    envelope.data = await seal(await dataKey(raw), { entries: [] }, vaultContext(envelope));
+    envelope.data = await seal(await dataKey(raw), { entries: [], ordered: true }, vaultContext(envelope));
     await this.local.set({ [VAULT_KEY]: envelope });
     await this.remember(envelope, base64(raw));
     return { initialized: true, unlocked: true };
@@ -97,8 +98,10 @@ export class Vault {
     if (!envelope) fail('unauthorized');
     const key = await dataKey(unbase64(await this.sessionKey(envelope), 32));
     try {
-      const content = await unseal<{ entries: unknown }>(key, envelope.data, vaultContext(envelope));
-      return { envelope, key, entries: storedEntries(content.entries) };
+      const content = await unseal<{ entries: unknown; ordered?: boolean }>(key, envelope.data, vaultContext(envelope));
+      const entries = storedEntries(content.entries);
+      if (!content.ordered) entries.sort((a, b) => b.updated_at - a.updated_at);
+      return { envelope, key, entries };
     } catch { return fail('vault_corrupt'); }
   }
 
@@ -108,7 +111,7 @@ export class Vault {
     await this.sessionKey(latest);
     if (entries.length > 5000) fail('vault_full');
     const next = { ...latest, revision: latest.revision + 1 };
-    next.data = await seal(current.key, { entries }, vaultContext(next));
+    next.data = await seal(current.key, { entries, ordered: true }, vaultContext(next));
     try { await this.local.set({ [VAULT_KEY]: next }); }
     catch { return fail('storage_failed'); }
   }
@@ -136,7 +139,7 @@ export class Vault {
       current.entries = current.entries.map(value => value.id === id ? entry : value);
     } else {
       entry = { ...content, id: crypto.randomUUID(), version: 1, created_at: timestamp, updated_at: timestamp };
-      current.entries.push(entry);
+      current.entries.unshift(entry);
     }
     await this.commit(current, current.entries);
     return { id: entry.id, version: entry.version };
@@ -156,6 +159,35 @@ export class Vault {
     const now = this.now();
     return { now: now / 1000, codes: Object.fromEntries(await Promise.all(entries.map(async entry =>
       [entry.id, await Promise.all(entry.totps.map(token => generateTotp(token, now)))]))) };
+  }
+
+  async advance(id: unknown, index: unknown, counter: unknown, version: unknown) {
+    const current = await this.access();
+    const entry = current.entries.find(value => value.id === id);
+    if (!entry) fail('not_found');
+    if (version !== entry.version) fail('conflict');
+    if (!Number.isInteger(index) || Number(index) < 0 || !entry.totps[Number(index)]) fail('invalid_input');
+    const token = entry.totps[Number(index)];
+    if (!counterBased(token.type)) fail('invalid_input');
+    if (counter !== token.counter) fail('conflict');
+    if (token.counter! >= Number.MAX_SAFE_INTEGER) fail('counter_exhausted');
+    token.counter!++;
+    entry.version++;
+    entry.updated_at = Math.floor(this.now() / 1000);
+    await this.commit(current, current.entries);
+    return { counter: token.counter };
+  }
+
+  async reorder(ids: unknown, expected: unknown) {
+    const current = await this.access();
+    const original = current.entries.map(entry => entry.id);
+    if (!Array.isArray(ids) || !Array.isArray(expected) || ids.length !== original.length
+      || ids.some(id => typeof id !== 'string') || new Set(ids).size !== ids.length) fail('invalid_input');
+    if (JSON.stringify(original) !== JSON.stringify(expected)) fail('conflict');
+    const entries = new Map(current.entries.map(entry => [entry.id, entry]));
+    if (ids.some(id => !entries.has(id))) fail('invalid_input');
+    await this.commit(current, ids.map(id => entries.get(id)!));
+    return { ok: true };
   }
 
   async backup(secret: unknown) {
