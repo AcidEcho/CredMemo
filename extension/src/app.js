@@ -194,8 +194,9 @@ import { moveVisible } from './list-order.ts';
   async function showQr(id,index) {
     const entry=await request('get',{id}),token=entry.totps[Number(index)];
     if(!token)throw new Error(t('invalid_totp'));
-    const payload=totpQrPayload(token,entry.title);
-    openModal(t('showQr'),`<div class="binding-qr"><p>${escape(token.label||entry.title)}</p><canvas id="totp-qr" role="img" aria-label="${escape(t('bindingQr'))}"></canvas><p class="qr-hint">${escape(t('qrSecretHint'))}</p></div>`,'','small');
+    const payload=totpQrPayload(token,entry.title),name=token.label||entry.title;
+    openModal(name,`<div class="binding-qr"><canvas id="totp-qr" role="img" aria-label="${escape(t('bindingQr'))}"></canvas><p class="qr-hint">${escape(t('qrSecretHint'))}</p></div>`,'','small qr-dialog');
+    $('#modal-title').title=name;
     try{await QRCode.toCanvas($('#totp-qr'),payload,{width:216,margin:4,errorCorrectionLevel:'M',color:{dark:'#000000',light:'#ffffff'}});}
     catch{closeModal();throw new Error(t('local_error'));}
   }

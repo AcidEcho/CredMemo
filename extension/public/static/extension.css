@@ -134,6 +134,7 @@ html[data-surface="popup"] .loading-screen{height:100%;min-height:0}
 html[data-surface="popup"] .drawer-header h2{font-size:16px}
 html[data-surface="popup"] .totp-body [data-action="show-qr"]{min-width:25px}
 .binding-qr{text-align:center}
+.qr-dialog .modal-header h2{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .binding-qr canvas{display:block;width:216px;height:216px;max-width:100%;margin:12px auto;background:#fff;border-radius:6px}
 .binding-qr p{font-size:12px;overflow-wrap:anywhere;margin:0}
 .binding-qr .qr-hint{font-size:10px;line-height:1.6;color:var(--muted);margin-top:10px}

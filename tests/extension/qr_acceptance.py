@@ -92,9 +92,18 @@ def run():
         assert len(request('list')['entries']) == 3
         page.locator('#modal-root [data-action=close-modal]').first.click()
 
+        plain_entry = next(entry for entry in entries if entry['title'] == '手动密钥')
+        page.locator(f'[data-entry="{plain_entry["id"]}"] [data-action=show-qr]').click()
+        expect(page.locator('#modal-title')).to_have_text(plain_entry['title'])
+        expect(page.locator('.binding-qr p:not(.qr-hint)')).to_have_count(0)
+        expect(page.locator('.qr-hint')).to_be_visible()
+        page.wait_for_function('()=>document.querySelector("#totp-qr").width===216')
+        page.screenshot(path=str(ROOT / 'release/screenshots/binding-qr-name.png'), animations='disabled')
+        page.locator('#modal-root [data-action=close-modal]').click()
+
         multi_entry = request('get', {'id': entries[0]['id']})
         multi_entry['logins'] = [{'label': 'Primary account', 'username': 'fixture@example.test', 'password': password}, {'label': 'Other', 'username': 'other@example.test', 'password': str(uuid.uuid4())}]
-        multi_entry['totps'] = [{'label': 'Primary token', 'secret': PUBLIC_SECRET, 'type': 'totp', 'digits': 8, 'period': 60, 'algorithm': 'SHA256'}, {'label': 'Other', 'secret': PUBLIC_SECRET, 'type': 'totp', 'digits': 6, 'period': 30, 'algorithm': 'SHA1'}]
+        multi_entry['totps'] = [{'label': 'Primary token', 'secret': PUBLIC_SECRET, 'type': 'totp', 'digits': 8, 'period': 60, 'algorithm': 'SHA256'}, {'label': '<Token>' + 'x' * 93, 'secret': PUBLIC_SECRET, 'type': 'totp', 'digits': 6, 'period': 30, 'algorithm': 'SHA1'}]
         request('save', {'id': multi_entry['id'], 'version': multi_entry['version'], 'entry': multi_entry})
         page.locator(f'[data-entry="{multi_entry["id"]}"] [data-action=edit]').click()
         expect(page.locator('.login-item')).to_have_count(2)
@@ -114,6 +123,11 @@ def run():
             page.locator(f'#drawer-root [data-action=show-qr][data-index="{index}"]').click()
             canvas = page.locator('#totp-qr')
             expect(canvas).to_be_visible()
+            expect(page.locator('#modal-title')).to_have_text(token['label'])
+            expect(page.locator('#modal-title')).to_have_attribute('title', token['label'])
+            expect(page.locator('.binding-qr p:not(.qr-hint)')).to_have_count(0)
+            expect(page.locator('.qr-hint')).to_be_visible()
+            assert page.locator('.modal-header').evaluate('node=>node.scrollWidth<=node.clientWidth&&node.querySelector("h2").getBoundingClientRect().right<node.querySelector("button").getBoundingClientRect().left')
             page.wait_for_function('()=>document.querySelector("#totp-qr").width>=200&&document.querySelector("#totp-qr").width<=216')
             pixels = canvas.evaluate('node=>({width:node.width,height:node.height,data:Array.from(node.getContext("2d").getImageData(0,0,node.width,node.height).data)})')
             assert pixels['data'][:4] == [255,255,255,255]
@@ -133,7 +147,7 @@ def run():
         request('lock')
         expect(page.locator('#totp-qr')).to_have_count(0)
         assert PUBLIC_SECRET not in json.dumps(page.evaluate('chrome.storage.local.get(null)'))
-        print('PASS: rendered binding QR decodes to each saved 2FA configuration; locks remove QR; manual configuration links are rejected',flush=True)
+        print('PASS: QR headings use names without duplicate labels; long names fit in both themes; QR parameters and lock protection remain intact',flush=True)
         assert not errors, errors
         ctx.close()
     print('Save-mode acceptance complete.', flush=True)
