@@ -1,6 +1,13 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      replace_version:
+        description: '明确授权覆盖的已有版本号；正常发布留空'
+        type: string
+        default: ''
+        required: false
   push:
     branches: [main]
     paths:
@@ -28,6 +35,8 @@ jobs:
           node-version: '24'
           cache: npm
       - name: Validate release notes
+        env:
+          REPLACE_VERSION: ${{ inputs.replace_version }}
         shell: bash
         run: |
           set -euo pipefail
@@ -35,6 +44,10 @@ jobs:
           notes="release-notes/v${version}.md"
           if [ ! -s "$notes" ]; then
             echo "::error::Missing release notes: ${notes}"
+            exit 1
+          fi
+          if [ -n "$REPLACE_VERSION" ] && { [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] || [ "$REPLACE_VERSION" != "$version" ]; }; then
+            echo "::error::Replacement must be dispatched explicitly for the current project version."
             exit 1
           fi
       - name: Install dependencies
@@ -50,16 +63,25 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPLACE_VERSION: ${{ inputs.replace_version }}
         shell: bash
         run: |
           set -euo pipefail
           version=$(node -p "require('./package.json').version")
           tag="v${version}"
           if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Version already published. Increase the project and extension versions before uploading."
-            exit 1
+            if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] || [ "$REPLACE_VERSION" != "$version" ]; then
+              echo "::error::Version already published. Increase the version or explicitly dispatch its replacement."
+              exit 1
+            fi
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag}" \
+              -f sha="$GITHUB_SHA" -F force=true --silent
+            gh release upload "$tag" "release/CredMemo-${version}.zip" "release/CredMemo-${version}.crx" --clobber
+            gh release edit "$tag" --target "$GITHUB_SHA" --title "CredMemo ${tag}" \
+              --notes-file "release-notes/${tag}.md" --latest
+          else
+            gh release create "$tag" "release/CredMemo-${version}.zip" "release/CredMemo-${version}.crx" \
+              --target "$GITHUB_SHA" \
+              --title "CredMemo ${tag}" \
+              --notes-file "release-notes/${tag}.md"
           fi
-          gh release create "$tag" "release/CredMemo-${version}.zip" "release/CredMemo-${version}.crx" \
-            --target "$GITHUB_SHA" \
-            --title "CredMemo ${tag}" \
-            --notes-file "release-notes/${tag}.md"

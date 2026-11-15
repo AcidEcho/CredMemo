@@ -30,8 +30,36 @@ def run():
             assert result['ok'], result.get('error')
             return result['data']
 
+        def toolbar_palette():
+            toolbar = page.locator('.heading-actions .button,.topbar-actions>.icon-button')
+            page.locator('.main-content').hover(position={'x': 3, 'y': 3})
+            styles = toolbar.evaluate_all('async items=>{await Promise.all(items.flatMap(node=>node.getAnimations()).map(animation=>animation.finished));return items.map(node=>{const s=getComputedStyle(node);return {color:s.color,background:s.backgroundColor}})}')
+            assert len(styles) == 5 and all(style == styles[-1] for style in styles)
+            assert styles[-1]['background'] == 'rgba(0, 0, 0, 0)'
+            hovered = []
+            for button in toolbar.all():
+                before = button.bounding_box()
+                button.hover()
+                assert button.bounding_box() == before
+                hovered.append(button.evaluate('async node=>{await Promise.all(node.getAnimations().map(animation=>animation.finished));const s=getComputedStyle(node);return {color:s.color,background:s.backgroundColor}}'))
+            assert all(style == hovered[-1] for style in hovered)
+            page.locator('.main-content').hover(position={'x': 3, 'y': 3})
+
         master, backup_password = str(uuid.uuid4())[:12], str(uuid.uuid4())
         request('initialize', {'password': master})
+        page.reload()
+        for scheme in ['light', 'dark']:
+            page.emulate_media(color_scheme=scheme)
+            expect(page.locator('html')).to_have_attribute('data-theme', scheme)
+            expect(page.locator('#empty-state')).to_be_visible()
+            expect(page.locator('#empty-state .empty-icon use')).to_have_attribute('href', '/static/icons.svg#credential')
+            toolbar_palette()
+            page.screenshot(path=str(OUT / f'empty-state-{scheme}.png'), animations='disabled')
+            page.locator('#empty-state [data-action=new]').click()
+            expect(page.locator('#entry-form')).to_be_visible()
+            page.locator('#modal-root [data-action=close-modal]').first.click()
+        page.emulate_media(color_scheme='light')
+        print('PASS: credential empty-state icon; five neutral toolbar buttons share default and hover colors in both themes', flush=True)
         for title, username in [('Example Mail', 'mail@example.test'), ('Example Work', 'work@example.test')]:
             entry = {'title': title, 'url': 'https://example.test', 'logins': [{'username': username, 'password': str(uuid.uuid4())}]}
             if username.startswith('mail'):
@@ -144,6 +172,7 @@ def run():
         expect(page.locator('#results-count')).to_have_text('1 条凭证')
         page.locator('#search').fill('No matching fixture')
         expect(page.locator('#empty-state')).to_be_visible()
+        expect(page.locator('#empty-state .empty-icon use')).to_have_attribute('href', '/static/icons.svg#search')
         expect(page.locator('#results-count')).to_have_text('0 条凭证')
         assert page.locator('.results-line').bounding_box()['y'] >= page.locator('#empty-state').bounding_box()['y'] + page.locator('#empty-state').bounding_box()['height']
         page.keyboard.press('Escape')
@@ -213,6 +242,7 @@ def run():
                 assert page.locator('#toolbar-menu').evaluate('node=>{const r=node.getBoundingClientRect();return node.scrollWidth<=node.clientWidth&&r.left>=0&&r.right<=innerWidth}')
                 page.screenshot(path=str(OUT / f'toolbar-menu-{language}-{theme}.png'), animations='disabled')
                 page.keyboard.press('Escape')
+                toolbar_palette()
                 for action in ['edit', 'delete', 'copy-username', 'reveal-card', 'copy-code', 'show-qr']:
                     button = page.locator(f'#entries [data-action={action}]').first
                     before = button.bounding_box()

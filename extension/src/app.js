@@ -107,7 +107,7 @@ import { moveVisible } from './list-order.ts';
     $('#results-count').textContent=t('itemCount',{n:filtered.length});
     $('#entries').innerHTML=filtered.map(renderCard).join('');
     $('#empty-state').hidden=!!filtered.length;
-    if(!filtered.length){const empty=entries.length===0;$('#empty-state').innerHTML=`<div class="empty-icon">${icon(empty?'layers':'search')}</div><h2>${escape(t(empty?'emptyTitle':'emptySearchTitle'))}</h2><p>${escape(t(empty?'emptyDescription':'emptySearchDescription'))}</p><button class="button ${empty?'primary':'secondary'}" data-action="${empty?'new':'clear'}">${icon(empty?'plus':'refresh')}${escape(t(empty?'addCredential':'clearSearch'))}</button>`;}
+    if(!filtered.length){const empty=entries.length===0;$('#empty-state').innerHTML=`<div class="empty-icon">${icon(empty?'credential':'search')}</div><h2>${escape(t(empty?'emptyTitle':'emptySearchTitle'))}</h2><p>${escape(t(empty?'emptyDescription':'emptySearchDescription'))}</p><button class="button ${empty?'primary':'secondary'}" data-action="${empty?'new':'clear'}">${icon(empty?'plus':'refresh')}${escape(t(empty?'addCredential':'clearSearch'))}</button>`;}
     tickCodes();codeStatus();
   }
   function searchPanel(open,focus=true) {
