@@ -118,7 +118,8 @@ def run():
             if index:
                 page.locator('#drawer-root [data-action=close-drawer]').click()
                 page.locator('#toolbar-more').click()
-                page.locator('.topbar [data-action=theme]').click()
+                page.locator('[data-action=theme-options]').click()
+                page.locator('[data-action=set-theme][data-theme=dark]').click()
                 page.locator('#toolbar-more').click()
                 page.locator('.topbar [data-action=language]').click()
                 page.locator(f'[data-entry="{multi_entry["id"]}"] [data-action=detail]').click()

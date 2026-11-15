@@ -40,8 +40,13 @@
         <div id="toolbar-menu" class="toolbar-menu" role="menu" aria-labelledby="toolbar-more" hidden>
           <button class="toolbar-menu-item" role="menuitem" data-action="transfer"><svg><use href="/static/icons.svg#archive"/></svg><span data-i18n="dataCenter">导入与备份</span></button>
           <button class="toolbar-menu-item" role="menuitem" data-action="language"><svg><use href="/static/icons.svg#globe"/></svg><span data-i18n="language">语言</span><span id="toolbar-language" class="toolbar-menu-value"></span></button>
-          <button class="toolbar-menu-item" role="menuitem" data-action="theme"><svg><use href="/static/icons.svg#sun"/></svg><span data-i18n="theme">主题</span><span id="toolbar-theme" class="toolbar-menu-value"></span></button>
-          <button class="toolbar-menu-item" role="menuitem" data-action="settings" id="header-avatar"><svg><use href="/static/icons.svg#settings"/></svg><span data-i18n="settings">偏好设置</span></button>
+          <button id="toolbar-theme-button" class="toolbar-menu-item" role="menuitem" data-action="theme-options" aria-expanded="false" aria-controls="toolbar-theme-options"><svg><use href="/static/icons.svg#sun"/></svg><span id="toolbar-theme-label" data-i18n="theme">主题</span><span id="toolbar-theme" class="toolbar-menu-value"></span></button>
+          <div id="toolbar-theme-options" class="toolbar-theme-options" role="group" aria-labelledby="toolbar-theme-label" hidden>
+            <button class="toolbar-menu-item theme-choice" role="menuitemradio" data-action="set-theme" data-theme="light" aria-checked="false"><span data-i18n="light">浅色</span><svg><use href="/static/icons.svg#check"/></svg></button>
+            <button class="toolbar-menu-item theme-choice" role="menuitemradio" data-action="set-theme" data-theme="dark" aria-checked="false"><span data-i18n="dark">深色</span><svg><use href="/static/icons.svg#check"/></svg></button>
+            <button class="toolbar-menu-item theme-choice" role="menuitemradio" data-action="set-theme" data-theme="system" aria-checked="false"><span data-i18n="system">跟随系统</span><svg><use href="/static/icons.svg#check"/></svg></button>
+          </div>
+          <button class="toolbar-menu-item" role="menuitem" data-action="change-password"><svg><use href="/static/icons.svg#key"/></svg><span data-i18n="changePassword">修改主密码</span></button>
         </div>
       </header>
       <main class="main-content">

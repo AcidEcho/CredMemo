@@ -110,7 +110,6 @@ def run():
         assert request('export', {'password': master})['entries'][0]['logins'][0]['password'] == credential_password
         page.locator('#modal-root [data-action=close-modal]').first.click()
         page.locator('#toolbar-more').click()
-        page.locator('.topbar [data-action=settings]').click()
         page.locator('[data-action=change-password]').click()
         expect(page.locator('#current-password')).to_be_focused()
         expect(page.locator('#current-password')).to_have_attribute('maxlength', '12')

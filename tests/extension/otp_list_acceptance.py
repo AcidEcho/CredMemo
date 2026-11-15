@@ -140,7 +140,8 @@ def run():
         assert [entry['id'] for entry in request('list')['entries']] == expected
         assert visible()[:2] == [shown[1], shown[0]]
         view.evaluate('document.querySelector("#toolbar-more").click()')
-        view.evaluate('document.querySelector(".topbar [data-action=theme]").click()')
+        view.evaluate('document.querySelector("[data-action=theme-options]").click()')
+        view.evaluate('document.querySelector("[data-action=set-theme][data-theme=dark]").click()')
         dimensions = view.evaluate('({viewport:innerWidth,html:document.documentElement.scrollWidth,body:document.body.scrollWidth})')
         image = view.send('Page.captureScreenshot', {'format':'png'})['data']
         import base64

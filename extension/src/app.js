@@ -25,9 +25,10 @@ import { moveVisible } from './list-order.ts';
     const resolved = theme==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):theme;
     document.documentElement.dataset.theme = resolved;
     $('meta[name="theme-color"]').content = resolved==='dark'?'#141917':'#f7f8fa';
-    $$('[data-action="theme"] use').forEach(el=>el.setAttribute('href',`/static/icons.svg#${resolved==='dark'?'moon':'sun'}`));
+    $$('[data-action="theme"] use,[data-action="theme-options"] use').forEach(el=>el.setAttribute('href',`/static/icons.svg#${resolved==='dark'?'moon':'sun'}`));
     $('#toolbar-language').textContent=I18N.language==='zh'?'简体中文':'English';
-    $('#toolbar-theme').textContent=t(resolved);
+    $('#toolbar-theme').textContent=t(theme);
+    $$('[data-action="set-theme"]').forEach(button=>button.setAttribute('aria-checked',String(button.dataset.theme===theme)));
   }
   function toast(message, error=false) {
     const node=document.createElement('div');node.className=`toast${error?' error':''}`;
@@ -117,7 +118,12 @@ import { moveVisible } from './list-order.ts';
   }
   function toolbarMenu(open,focus=false) {
     $('#toolbar-menu').hidden=!open;$('#toolbar-more').setAttribute('aria-expanded',String(open));
+    if(!open)themeOptions(false);
     if(focus)(open?$('#toolbar-menu button'):$('#toolbar-more')).focus();
+  }
+  function themeOptions(open,focus=false) {
+    $('#toolbar-theme-options').hidden=!open;$('#toolbar-theme-button').setAttribute('aria-expanded',String(open));
+    if(focus)(open?$('#toolbar-theme-options [aria-checked="true"]'):$('#toolbar-theme-button')).focus();
   }
   function codeStatus() {
     const label=$('.results-line [data-i18n="codesRefresh"]');
@@ -244,14 +250,13 @@ import { moveVisible } from './list-order.ts';
       closeModal();toast(t('imported',{n:result.imported}));await loadEntries();
     }
   }
-  function settings() {
-    openModal(t('settings'),`<div class="settings-row"><b>${escape(t('appearance'))}</b><select class="select" id="theme-select" aria-label="${escape(t('theme'))}">${['light','dark','system'].map(value=>`<option value="${value}" ${theme===value?'selected':''}>${escape(t(value))}</option>`).join('')}</select></div><div class="settings-row"><b>${escape(t('language'))}</b><select class="select" id="language-select" aria-label="${escape(t('language'))}"><option value="zh" ${I18N.language==='zh'?'selected':''}>简体中文</option><option value="en" ${I18N.language==='en'?'selected':''}>English</option></select></div><div class="settings-row"><b>${escape(t('masterPassword'))}</b><button class="text-button" data-action="change-password">${escape(t('changePassword'))}</button></div><p class="session-hint">${icon('lock')}${escape(t('sessionDescription'))}</p>`,`<button class="button secondary" data-action="lock">${icon('lock')}${escape(t('lockNow'))}</button>`,'preferences');
-  }
   function setLanguage(value) {I18N.set(value);authMode(state.authMode);if(state.unlocked)render();applyTheme();}
   async function lockVault() {try{await request('lock');}catch{}finally{showAuth();}}
   async function action(button) {
     const {action,id,index='0'}=button.dataset;
     if(action==='toolbar-menu')return toolbarMenu($('#toolbar-menu').hidden,true);
+    if(action==='theme-options')return themeOptions($('#toolbar-theme-options').hidden,true);
+    if(action==='set-theme'){theme=button.dataset.theme;localStorage.setItem('credmemo-theme',theme);applyTheme();toast(t(theme));return;}
     if(action==='search-toggle')return searchPanel($('#search-panel').hidden);
     if(action==='search-close')return searchPanel(false);
     if(action==='token-options'){const panel=$('.advanced-options',button.closest('.token-item'));panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden){$('.token-type',panel).focus();panel.scrollIntoView({block:'nearest'});}return;}
@@ -295,14 +300,13 @@ import { moveVisible } from './list-order.ts';
     if(action==='confirm-delete'){await request('delete',{id,version:Number(button.dataset.version)});closeModal();closeDrawer();toast(t('deleted'));return loadEntries();}
     if(action==='transfer')return transfer();
     if(action==='transfer-tab')return transfer(button.dataset.tab);
-    if(action==='settings')return settings();
     if(action==='change-password')return openModal(t('changePassword'),`<div class="notice">${icon('info')}<span>${escape(t('changePasswordHint'))}</span></div><form id="password-form">${field('currentPassword','current-password','','passwordPlaceholder','password','required minlength="6" maxlength="12" autocomplete="current-password"')}${field('newPassword','new-password','','newPasswordPlaceholder','password','required minlength="6" maxlength="12" autocomplete="new-password"')}${field('confirmPassword','new-password-confirm','','repeatPassword','password','required minlength="6" maxlength="12" autocomplete="new-password"')}<div id="form-error" class="inline-error" hidden role="alert"></div></form>`,`<button class="button secondary" data-action="close-modal">${escape(t('cancel'))}</button><button type="submit" class="button primary" form="password-form">${escape(t('changePassword'))}</button>`,'small');
   }
   document.addEventListener('click',async event=>{
     const button=event.target.closest('[data-action]');
     if(!button){if(!event.target.closest('#toolbar-menu'))toolbarMenu(false);return;}
     if(button.disabled)return;
-    if(button.dataset.action!=='toolbar-menu')toolbarMenu(false,$('#toolbar-menu').contains(button));
+    if(!['toolbar-menu','theme-options'].includes(button.dataset.action))toolbarMenu(false,$('#toolbar-menu').contains(button));
     try{await action(button);}catch(error){if(error.name!=='AbortError')toast(error.message||t('connectionFailed'),true);}
   });
   document.addEventListener('focusin',event=>{if(!event.target.closest('#toolbar-menu,#toolbar-more'))toolbarMenu(false);});
@@ -325,8 +329,6 @@ import { moveVisible } from './list-order.ts';
   document.addEventListener('change',async event=>{
     const input=event.target;
     if(input.matches('.token-type')){const row=input.closest('.token-item'),type=input.value,event=counterBased(type),digits=$('[data-field="digits"]',row);$('.period-option',row).hidden=event;$('.counter-option',row).hidden=!event;$('[data-field=period]',row).disabled=event;$('[data-field=counter]',row).disabled=!event;digits.readOnly=['steam','battle'].includes(type);if(type==='steam')digits.value=5;else if(type==='battle')digits.value=8;else if(digits.value==='5')digits.value=6;$('[data-field="secret"]',row).placeholder=t(['hex','hhex'].includes(type)?'hexSecretPlaceholder':'totpSecretPlaceholder');return;}
-    if(input.id==='theme-select'){theme=input.value;localStorage.setItem('credmemo-theme',theme);applyTheme();return;}
-    if(input.id==='language-select'){setLanguage(input.value);settings();return;}
     if(input.id==='import-file'){
       const file=input.files[0];transferFile=null;$('#transfer-error').hidden=true;$('#restore-password-field').hidden=true;$('#restore-password').required=false;$('#restore-password').value='';$('#import-submit').disabled=true;$('#file-name').textContent=t('selectFile');$('#file-name').title='';
       if(!file)return;
@@ -355,9 +357,11 @@ import { moveVisible } from './list-order.ts';
   $('#entries').addEventListener('dragend',()=>{draggedId=null;$$('.drag-over').forEach(node=>node.classList.remove('drag-over'));});
   ['pointerdown','keydown','touchstart'].forEach(name=>document.addEventListener(name,()=>state.lastActive=Date.now(),{passive:true}));
   document.addEventListener('keydown',event=>{
+    if(event.key==='ArrowRight'&&event.target.id==='toolbar-theme-button'){event.preventDefault();themeOptions(true,true);return;}
+    if(['Escape','ArrowLeft'].includes(event.key)&&!$('#toolbar-theme-options').hidden&&event.target.closest('#toolbar-menu')){event.preventDefault();themeOptions(false,true);return;}
     if(event.target.closest('#toolbar-menu,#toolbar-more')&&['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
-      event.preventDefault();const items=$$('#toolbar-menu button'),index=items.indexOf(document.activeElement);
-      toolbarMenu(true);
+      event.preventDefault();toolbarMenu(true);
+      const items=$$('#toolbar-menu button').filter(button=>button.getClientRects().length),index=items.indexOf(document.activeElement);
       items[event.key==='Home'?0:event.key==='End'?items.length-1:event.key==='ArrowDown'?(index+1)%items.length:(index<0?items.length-1:(index+items.length-1)%items.length)].focus();return;
     }
     if(event.key==='Escape'&&!$('#toolbar-menu').hidden){event.preventDefault();toolbarMenu(false,true);return;}
