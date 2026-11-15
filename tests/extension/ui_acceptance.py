@@ -103,6 +103,10 @@ def run():
         def input_buttons_fit():
             assert page.locator('#modal-root .input-wrap').evaluate_all('wraps=>wraps.every(wrap=>{const r=wrap.getBoundingClientRect(),buttons=[...wrap.querySelectorAll("button")].map(button=>button.getBoundingClientRect());return buttons.every((button,index)=>button.left>=r.left&&button.right<=r.right&&button.top>=r.top&&button.bottom<=r.bottom&&(!index||buttons[index-1].right<=button.left))})')
 
+        def error_feedback():
+            assert page.locator('#form-error').evaluate('node=>{const r=node.getBoundingClientRect(),modal=node.closest(".modal").getBoundingClientRect(),x=r.left+r.width/2;return r.top>=modal.top&&r.bottom<=modal.bottom&&r.top>=0&&r.bottom<=innerHeight&&[r.top+2,r.bottom-2].every(y=>node.contains(document.elementFromPoint(x,y)))}'), 'Validation feedback is clipped or covered'
+            assert page.locator('button[form=entry-form]').evaluate('node=>{const r=node.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight}')
+
         for language in ['zh', 'en']:
             if page.locator('html').get_attribute('lang') != ('zh-CN' if language == 'zh' else 'en'):
                 page.locator('.topbar [data-action=language]').click()
@@ -142,7 +146,50 @@ def run():
                 page.locator('[data-action=token-options]').click()
                 expect(page.locator('.token-type')).to_be_hidden()
                 expect(page.locator('[data-action=token-options]')).to_have_attribute('aria-expanded', 'false')
-                page.locator('#modal-root .modal-header [data-action=close-modal]').click()
+                page.locator('#entry-title').fill('Validation fixture')
+                page.locator('button[form=entry-form]').click()
+                expect(page.locator('#form-error')).to_have_text('至少添加一组账号密码或 2FA' if language == 'zh' else 'Add at least one account or 2FA key')
+                page.screenshot(path=str(OUT / f'validation-missing-{language}-{theme}.png'), animations='disabled')
+                error_feedback()
+                expect(page.locator('#entry-title')).to_have_value('Validation fixture')
+                assert len(request('list')['entries']) == 2
+
+                password = str(uuid.uuid4())
+                page.locator('.login-item [data-field=username]').fill('validation@example.test')
+                page.locator('.login-item [data-field=password]').fill(password)
+                page.locator('#entry-notes').fill('Preserve these unsaved fields')
+                page.locator('#entry-url').fill('https://invalid host.test')
+                page.locator('button[form=entry-form]').click()
+                expect(page.locator('#form-error')).to_have_text('请输入有效网站地址' if language == 'zh' else 'Enter a valid website URL')
+                error_feedback()
+
+                page.locator('#entry-url').fill('')
+                page.locator('.token-item [data-field=secret]').fill('invalid 2FA fixture')
+                page.locator('[data-action=token-options]').click()
+                page.locator('.modal-body').evaluate('node=>node.scrollTop=0')
+                page.locator('button[form=entry-form]').click()
+                expect(page.locator('#form-error')).to_have_text('2FA 密钥或参数无效' if language == 'zh' else 'Invalid 2FA secret or parameters')
+                error_feedback()
+                expect(page.locator('.login-item [data-field=password]')).to_have_value(password)
+                expect(page.locator('#entry-notes')).to_have_value('Preserve these unsaved fields')
+                assert len(request('list')['entries']) == 2
+
+                page.locator('.token-item [data-field=secret]').fill('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ')
+                page.locator('button[form=entry-form]').click()
+                expect(page.locator('#modal-root')).to_be_empty()
+                saved = next(entry for entry in request('list')['entries'] if entry['title'] == 'Validation fixture')
+                assert request('get', {'id': saved['id']})['logins'][0]['password'] == password
+                page.locator(f'[data-entry="{saved["id"]}"] [data-action=edit]').click()
+                page.locator('#entry-url').fill('https://invalid host.test')
+                page.locator('button[form=entry-form]').click()
+                expect(page.locator('#form-error')).to_have_text('请输入有效网站地址' if language == 'zh' else 'Enter a valid website URL')
+                error_feedback()
+                expect(page.locator('.login-item [data-field=password]')).to_have_value(password)
+                assert request('get', {'id': saved['id']})['url'] == ''
+                page.locator('#modal-root [data-action=close-modal]').first.click()
+                request('delete', {'id': saved['id'], 'version': saved['version']})
+                page.reload()
+                expect(page.locator('.entry-card')).to_have_count(2)
                 for tab in ['backup', 'import', 'export']:
                     transfer(tab)
                     layout()
@@ -151,7 +198,8 @@ def run():
                         expect(page.locator('#import-submit')).to_be_disabled()
                     page.screenshot(path=str(OUT / f'transfer-{tab}-{language}-{theme}.png'), animations='disabled')
                     page.locator('#modal-root [data-action=close-modal]').click()
-        print('PASS: aligned 2FA settings, contained hover targets, visible keyboard focus and transfer layouts in both languages and themes', flush=True)
+        print('PASS: validation errors stay visible without scrolling, preserve unsaved fields and allow correction in both languages and themes', flush=True)
+        print('PASS: aligned 2FA settings, contained hover targets, visible keyboard focus and transfer layouts', flush=True)
 
         exported = request('export', {'password': master})
         encrypted = request('backup', {'password': backup_password})

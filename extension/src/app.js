@@ -174,9 +174,8 @@ import { moveVisible } from './list-order.ts';
       ${field('website','entry-url',entry?.url,'websitePlaceholder','text','maxlength="2000"')}
       <section><div id="login-items">${(entry?.logins.length?entry.logins:[{}]).map((item,index)=>loginFields(item,index===0)).join('')}</div></section>
       <section><div id="token-items">${(entry?.totps.length?entry.totps:[{}]).map((item,index)=>totpFields(item,index===0)).join('')}</div></section>
-      <label class="field-label" for="entry-notes">${escape(t('notes'))}</label><textarea id="entry-notes" class="input" rows="2" maxlength="10000" placeholder="${escape(t('notesPlaceholder'))}">${escape(entry?.notes||'')}</textarea>
-      <div id="form-error" class="inline-error" role="alert" hidden></div></form>`;
-    openModal(t(id?'editCredential':'addCredential'),body,`<button class="button secondary" data-action="close-modal">${escape(t('cancel'))}</button><button type="submit" form="entry-form" class="button primary">${escape(t('save'))}</button>`,'editor');
+      <label class="field-label" for="entry-notes">${escape(t('notes'))}</label><textarea id="entry-notes" class="input" rows="2" maxlength="10000" placeholder="${escape(t('notesPlaceholder'))}">${escape(entry?.notes||'')}</textarea></form>`;
+    openModal(t(id?'editCredential':'addCredential'),body,`<div id="form-error" class="inline-error" role="alert" hidden></div><button class="button secondary" data-action="close-modal">${escape(t('cancel'))}</button><button type="submit" form="entry-form" class="button primary">${escape(t('save'))}</button>`,'editor');
     $('#entry-title').focus();
   }
   function editorValues(form) {
