@@ -25,14 +25,14 @@ html[data-surface="popup"] .topbar-actions>.icon-button svg{width:16px;height:16
 html[data-surface="popup"] .main-content{padding:14px;width:100%;flex:1;min-height:0;overflow-y:auto}
 html[data-surface="popup"] .heading-actions{width:auto;display:flex;align-items:center;justify-content:flex-end;gap:3px}
 html[data-surface="popup"] .heading-actions .button{width:26px;min-width:26px;height:28px;min-height:28px;padding:6px;border:0;border-radius:6px;flex:none;order:0;background:transparent;color:var(--muted)}
-html[data-surface="popup"] .heading-actions .button:hover:not(:disabled),html[data-surface="popup"] .topbar-actions>.icon-button:hover:not(:disabled){background:color-mix(in srgb,var(--green) 5%,transparent);color:var(--green)}
+html[data-surface="popup"] .heading-actions .button:hover:not(:disabled),html[data-surface="popup"] .topbar-actions>.icon-button:hover:not(:disabled){color:var(--green)}
 html[data-surface="popup"] .heading-actions svg{width:14px;height:14px}
 html[data-surface="popup"] .topbar:has(#search-panel:not([hidden])) .popup-brand{display:none}
 html[data-surface="popup"] .topbar:has(#search-panel:not([hidden])) .topbar-actions{width:100%;min-width:0}
 html[data-surface="popup"] .heading-actions:has(#search-panel:not([hidden])){flex:1;min-width:0}
 .toolbar-menu{position:absolute;top:calc(100% - 8px);right:13px;z-index:1;width:182px;padding:5px;border:1px solid var(--border);border-radius:10px;background:var(--surface);box-shadow:0 6px 22px #10261e18}
 .toolbar-menu-item{display:flex;align-items:center;gap:9px;width:100%;min-height:35px;padding:8px 10px;color:var(--text);font-size:11px;border-radius:6px;text-align:left}
-.toolbar-menu-item:hover{background:color-mix(in srgb,var(--green) 5%,transparent)}
+.toolbar-menu-item:hover:not(:disabled) svg{color:var(--green)}
 .toolbar-menu-item svg{width:15px;height:15px;flex-shrink:0;color:var(--muted)}
 .toolbar-menu-value{margin-left:auto;color:var(--muted);font-size:10px}
 .toolbar-menu [data-action="change-password"]{border-top:1px solid var(--border);border-radius:0;margin-top:3px;padding-top:11px}
@@ -42,7 +42,6 @@ html[data-surface="popup"] .heading-actions:has(#search-panel:not([hidden])){fle
 .theme-choice[aria-checked="true"]{color:var(--green);background:var(--green-wash)}
 .theme-choice[aria-checked="true"] svg{visibility:visible;color:inherit}
 .utility-button{color:var(--green);background:var(--surface);border:1px solid var(--green-line)}
-.utility-button:hover{background:color-mix(in srgb,var(--green) 5%,var(--surface))}
 html[data-surface="popup"] .search-control{display:flex;align-items:center;min-width:28px;height:28px;border-radius:7px}
 html[data-surface="popup"] .search-control:has(.search-box:not([hidden])){flex:1;min-width:0;background:var(--surface);box-shadow:inset 0 0 0 1px var(--green-line)}
 html[data-surface="popup"] .search-control:has(.search-box:not([hidden])):focus-within{box-shadow:inset 0 0 0 1px var(--green)}
@@ -59,6 +58,10 @@ html[data-surface="popup"] .entry-card .service-icon{width:28px;height:28px;font
 html[data-surface="popup"] .entry-title h3{font-size:12px;line-height:1.3;margin:0}
 html[data-surface="popup"] .entry-title small{font-size:9px;line-height:1.2}
 html[data-surface="popup"] .card-actions{flex-shrink:0}
+.entry-card,.editor{--control-icon:color-mix(in srgb,var(--muted) 70%,var(--text))}
+.entry-card .icon-button,.editor .icon-button,.entry-account>svg,.entry-password>svg{color:var(--control-icon)}
+.entry-card .icon-button svg,.editor .icon-button svg,.entry-account>svg,.entry-password>svg{stroke-width:1.8}
+html[data-surface="popup"] .entry-card .icon-button:not(.drag-handle){width:24px;min-width:24px;height:24px}
 html[data-surface="popup"] .entry-account>svg,html[data-surface="popup"] .entry-password>svg,html[data-surface="popup"] .entry-card .icon-button:not(.drag-handle) svg{width:14px;height:14px}
 html[data-surface="popup"] .entry-card-top{gap:8px}
 html[data-surface="popup"] .entry-account{margin-top:5px;margin-bottom:1px}
@@ -70,7 +73,7 @@ html[data-surface="popup"] .entry-card .totp-code{font-size:22px;letter-spacing:
 html[data-surface="popup"] .entry-card .countdown,html[data-surface="popup"] .entry-card .countdown svg{width:26px;height:26px}
 html[data-surface="popup"] .entry-card-footer{margin:7px -12px -9px;padding:2px 9px;min-height:27px}
 html[data-surface="popup"] .entry-card-footer .tag-count{font-size:8px}
-.icon-button.delete-button:hover:not(:disabled){color:var(--red);background:color-mix(in srgb,var(--red) 5%,transparent)}
+.icon-button.delete-button:hover:not(:disabled){color:var(--red)}
 html[data-surface="popup"] .empty-state{min-height:195px;padding:24px 18px}
 html[data-surface="popup"] .empty-state h2{font-size:13px}
 html[data-surface="popup"] .empty-state p{font-size:11px}
@@ -94,16 +97,18 @@ html[data-surface="popup"] .section-heading h3{font-size:11px;color:var(--muted)
 html[data-surface="popup"] .form-item{padding:0 10px 10px;margin-bottom:7px}
 html[data-surface="popup"] .form-item>.remove-item{top:3px;right:4px;min-width:22px;height:22px}
 html[data-surface="popup"] .editor .form-item{border:0;background:transparent;padding:0;margin:0}
-html[data-surface="popup"] .editor .field-label{margin:4px 0 3px;line-height:1.3}
+html[data-surface="popup"] .editor{max-height:min(466px,calc(100dvh - 32px))}
+html[data-surface="popup"] .editor .field-label{margin:7px 0 4px;line-height:1.3}
 html[data-surface="popup"] .editor #entry-form>.field-label:first-child{margin-top:0}
 html[data-surface="popup"] .editor .input,html[data-surface="popup"] .editor .input-wrap{min-height:30px;height:30px}
 html[data-surface="popup"] .editor .input{padding:4px 10px}
 html[data-surface="popup"] .editor .input-wrap input{padding:4px 0}
 html[data-surface="popup"] .editor .input-wrap .icon-button{width:24px;min-width:24px;height:24px}
+html[data-surface="popup"] .editor .input-wrap .icon-button svg{width:14px;height:14px}
 html[data-surface="popup"] .editor #entry-notes{height:36px;min-height:36px;line-height:1.4;resize:vertical}
-html[data-surface="popup"] .editor .modal-header{padding:9px 14px 8px}
+html[data-surface="popup"] .editor .modal-header{padding:11px 14px 10px}
 html[data-surface="popup"] .editor .modal-header .icon-button{min-width:26px;height:26px}
-html[data-surface="popup"] .editor .modal-body{padding:8px 15px 10px}
+html[data-surface="popup"] .editor .modal-body{padding:10px 15px 12px}
 html[data-surface="popup"] .editor .modal-footer{padding:8px 15px;flex-wrap:wrap}
 html[data-surface="popup"] .editor .modal-footer .inline-error{flex:0 0 100%;margin:0;padding:7px 9px;font-size:11px;line-height:1.5}
 html[data-surface="popup"] .transfer .modal-header{padding-bottom:12px}
@@ -151,9 +156,10 @@ html[data-surface="popup"] .totp-body [data-action="show-qr"]{min-width:25px}
 html[data-surface="popup"] .entry-card-top>.drag-handle{min-width:16px;width:16px;height:28px;cursor:grab;color:var(--muted);margin-left:-5px;margin-right:-4px}
 .drag-handle:active{cursor:grabbing}
 .entry-card.drag-over{outline:2px solid var(--green);outline-offset:2px}
-.token-heading{display:flex;align-items:center;gap:5px;margin-bottom:1px}
-html[data-surface="popup"] .token-heading .field-label{margin:0;flex:1}
-html[data-surface="popup"] .token-heading .icon-button{min-width:22px;height:20px}
+.token-heading{display:flex;align-items:center;gap:6px;margin:7px 0 4px;padding-right:6px}
+html[data-surface="popup"] .editor .token-heading .field-label{margin:0;flex:1}
+html[data-surface="popup"] .editor .token-heading .icon-button{width:24px;min-width:24px;height:20px}
+html[data-surface="popup"] .editor .token-heading .icon-button svg{width:14px;height:14px}
 html[data-surface="popup"] .editor .advanced-options{margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
 html[data-surface="popup"] .token-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px;margin:0}
 html[data-surface="popup"] .token-options label{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:10px;font-weight:500;line-height:1.3;color:var(--muted)}

@@ -143,7 +143,7 @@ def run():
         popup.evaluate('document.querySelector(".heading-actions [data-action=new]").click()')
         popup.wait('!!document.querySelector("#entry-form")')
         assert popup.evaluate('document.querySelector(".modal").getBoundingClientRect().width<=328')
-        assert popup.evaluate('document.querySelector(".modal").getBoundingClientRect().height<=430')
+        assert popup.evaluate('document.querySelector(".modal").getBoundingClientRect().height<=466')
         assert popup.evaluate('document.querySelector(".modal-body").scrollWidth<=document.querySelector(".modal-body").clientWidth')
         assert popup.evaluate('document.querySelector(".modal-body").scrollHeight<=document.querySelector(".modal-body").clientHeight')
         assert popup.evaluate('document.querySelectorAll(".primary-item .remove-item").length===0')

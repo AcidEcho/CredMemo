@@ -43,6 +43,7 @@ def run():
                 assert button.bounding_box() == before
                 hovered.append(button.evaluate('async node=>{await Promise.all(node.getAnimations().map(animation=>animation.finished));const s=getComputedStyle(node);return {color:s.color,background:s.backgroundColor}}'))
             assert all(style == hovered[-1] for style in hovered)
+            assert hovered[-1]['background'] == styles[-1]['background'] and hovered[-1]['color'] != styles[-1]['color']
             page.locator('.main-content').hover(position={'x': 3, 'y': 3})
 
         master, backup_password = str(uuid.uuid4())[:12], str(uuid.uuid4())
@@ -223,6 +224,27 @@ def run():
 
         def input_buttons_fit():
             assert page.locator('#modal-root .input-wrap').evaluate_all('wraps=>wraps.every(wrap=>{const r=wrap.getBoundingClientRect(),buttons=[...wrap.querySelectorAll("button")].map(button=>button.getBoundingClientRect());return buttons.every((button,index)=>button.left>=r.left&&button.right<=r.right&&button.top>=r.top&&button.bottom<=r.bottom&&(!index||buttons[index-1].right<=button.left))})')
+            eyes = page.locator('.editor .input-wrap [data-action=toggle-password]').evaluate_all('items=>items.map(node=>{const r=node.getBoundingClientRect();return r.x+r.width/2})')
+            assert len(eyes) == 2 and abs(eyes[0] - eyes[1]) <= 1
+            assert page.locator('.token-item .input-wrap button').evaluate_all('items=>items.map(node=>node.dataset.action)') == ['scan-entry', 'toggle-password']
+            assert page.locator('.token-heading').evaluate('node=>{const label=node.querySelector("label").getBoundingClientRect(),button=node.querySelector("button").getBoundingClientRect(),eye=node.nextElementSibling.querySelector("[data-action=toggle-password]").getBoundingClientRect();return Math.abs(label.y+label.height/2-button.y-button.height/2)<=1&&Math.abs(button.x+button.width/2-eye.x-eye.width/2)<=1}')
+            assert page.locator('.editor .field-label').evaluate_all('labels=>labels.every(label=>{const field=document.getElementById(label.htmlFor);return field.getBoundingClientRect().top-label.getBoundingClientRect().bottom>=4})')
+
+        def card_controls():
+            card = page.locator('.entry-card:has(.totp-block)').first
+            groups = card.locator('.card-actions').evaluate_all('items=>items.map(node=>[...node.querySelectorAll("button")].map(button=>{const r=button.getBoundingClientRect();return {x:r.x,width:r.width}}))')
+            assert len(groups) == 2 and all(len(group) == 2 for group in groups)
+            assert all(abs(top['x'] - bottom['x']) <= 1 and top['width'] == bottom['width'] for top, bottom in zip(*groups))
+            assert 0 <= groups[1][1]['x'] - groups[1][0]['x'] - groups[1][0]['width'] <= 4
+            colors = card.locator('.entry-account>svg,.entry-password>svg,.card-actions button,.entry-account button').evaluate_all('items=>items.map(node=>getComputedStyle(node).color)')
+            assert len(set(colors)) == 1
+
+        def hover_no_background(button):
+            button.hover(trial=True)
+            before = button.evaluate('node=>({background:getComputedStyle(node).backgroundColor,rect:node.getBoundingClientRect().toJSON()})')
+            button.hover()
+            after = button.evaluate('async node=>{await Promise.all(node.getAnimations().map(animation=>animation.finished));return {background:getComputedStyle(node).backgroundColor,rect:node.getBoundingClientRect().toJSON()}}')
+            assert after == before
 
         def error_feedback():
             assert page.locator('#form-error').evaluate('node=>{const r=node.getBoundingClientRect(),modal=node.closest(".modal").getBoundingClientRect(),x=r.left+r.width/2;return r.top>=modal.top&&r.bottom<=modal.bottom&&r.top>=0&&r.bottom<=innerHeight&&[r.top+2,r.bottom-2].every(y=>node.contains(document.elementFromPoint(x,y)))}'), 'Validation feedback is clipped or covered'
@@ -240,14 +262,15 @@ def run():
                 expect(page.locator('#toolbar-language')).to_have_text('简体中文' if language == 'zh' else 'English')
                 expect(page.locator('#toolbar-theme')).to_have_text(('浅色' if theme == 'light' else '深色') if language == 'zh' else theme.capitalize())
                 assert page.locator('#toolbar-menu').evaluate('node=>{const r=node.getBoundingClientRect();return node.scrollWidth<=node.clientWidth&&r.left>=0&&r.right<=innerWidth}')
+                for button in page.locator('#toolbar-menu>button').all():
+                    hover_no_background(button)
                 page.screenshot(path=str(OUT / f'toolbar-menu-{language}-{theme}.png'), animations='disabled')
                 page.keyboard.press('Escape')
                 toolbar_palette()
-                for action in ['edit', 'delete', 'copy-username', 'reveal-card', 'copy-code', 'show-qr']:
+                card_controls()
+                for action in ['edit', 'delete', 'copy-username', 'reveal-card', 'copy-password', 'copy-code', 'show-qr']:
                     button = page.locator(f'#entries [data-action={action}]').first
-                    before = button.bounding_box()
-                    button.hover()
-                    assert button.bounding_box() == before
+                    hover_no_background(button)
                     if action in ['edit', 'delete']:
                         page.screenshot(path=str(OUT / f'hover-{action}-{language}-{theme}.png'), animations='disabled')
                 page.locator('#entries [data-action=edit]').first.focus()
@@ -261,6 +284,8 @@ def run():
                 expect(page.locator('.token-type')).to_be_hidden()
                 assert page.locator('.modal-body').evaluate('node=>node.scrollHeight<=node.clientHeight+1&&node.scrollWidth<=node.clientWidth')
                 input_buttons_fit()
+                for button in page.locator('.editor .modal-footer button,.editor .input-wrap button,.editor .token-heading button').all():
+                    hover_no_background(button)
                 page.locator('.token-item [data-action=toggle-password]').hover()
                 page.screenshot(path=str(OUT / f'hover-secret-{language}-{theme}.png'), animations='disabled')
                 page.locator('[data-action=token-options]').click()

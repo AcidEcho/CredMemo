@@ -14,17 +14,15 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--green)!i
 [hidden]{display:none!important}
 .muted{color:var(--muted)}
 .tiny-text{font-size:12px}
-.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 17px;border-radius:8px;font-weight:550;font-size:13px;white-space:nowrap;transition:background .18s,transform .18s}
+.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 17px;border-radius:8px;font-weight:550;font-size:13px;white-space:nowrap;transition:transform .18s}
 .button:active{transform:translateY(1px)}
 .button svg{width:17px;height:17px}
 .primary{background:var(--green);color:#fff;border:1px solid var(--green)}
-.primary:hover{background:var(--green-hover)}
 .secondary{background:var(--surface);border:1px solid var(--border);box-shadow:0 1px 2px #00000004}
-.secondary:hover{background:var(--hover)}
 .danger{background:var(--red-wash);color:var(--red);border:1px solid var(--red-border)}
-.icon-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:34px;height:34px;padding:0;border-radius:4px;color:var(--muted);flex-shrink:0;transition:background-color .15s,color .15s}
+.icon-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:34px;height:34px;padding:0;border-radius:4px;color:var(--muted);flex-shrink:0;transition:color .15s}
 .icon-button svg{width:18px;height:18px}
-.icon-button:hover:not(:disabled){background:color-mix(in srgb,var(--green) 5%,transparent);color:var(--green)}
+.icon-button:hover:not(:disabled){color:var(--green)}
 .icon-button.tiny{min-width:24px;height:24px}
 .icon-button.tiny svg{width:15px;height:15px}
 .brand{display:flex;align-items:center;font-size:23px;letter-spacing:-1px;font-weight:720;line-height:1;white-space:nowrap}
@@ -101,7 +99,6 @@ input::placeholder,textarea::placeholder{color:var(--placeholder)}
 .main-nav{display:flex;flex-direction:column;gap:5px}
 .nav-item{display:flex;align-items:center;gap:11px;width:100%;padding:10px 13px;text-align:left;font-size:12px;color:var(--muted);border-radius:7px;min-height:42px}
 .nav-item svg{width:17px;height:17px}
-.nav-item:hover{background:var(--hover)}
 .nav-item.active{background:var(--green-wash);color:var(--green);font-weight:600}
 .nav-count{margin-left:auto;min-width:20px;border-radius:4px;background:var(--count-bg);text-align:center;font-size:10px;padding:0 4px;color:var(--muted)}
 .active .nav-count{background:var(--green-line);color:var(--green)}
@@ -182,9 +179,6 @@ input::placeholder,textarea::placeholder{color:var(--placeholder)}
 .entry-password{display:flex;align-items:center;gap:7px;font-size:14px;letter-spacing:2px;margin:0 0 16px}
 .entry-password>svg{width:13px;height:13px;color:var(--muted)}
 .entry-password>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.entry-password>.icon-button{height:25px;min-width:25px}
-.entry-password>.icon-button svg{width:13px;height:13px}
-.entry-password>.icon-button:first-of-type{margin-left:auto}
 .totp-block{background:var(--code-bg);border:1px solid var(--code-border);border-radius:7px;padding:10px 12px;margin:0 0 17px}
 .totp-header{display:flex;justify-content:space-between;align-items:center;font-size:8px;color:var(--muted);letter-spacing:.5px;margin-bottom:3px}
 .totp-header>span:first-child{display:flex;align-items:center;gap:5px}
@@ -425,7 +419,6 @@ to{opacity:1;transform:translateY(0)}
 .entry-account{font-size:9px;gap:5px;margin:18px 0 11px}
 .entry-account .icon-button{min-width:20px}
 .entry-password{margin-bottom:13px;font-size:12px;letter-spacing:1.5px}
-.entry-password>.icon-button{min-width:20px}
 .totp-block{padding:8px;margin-bottom:13px}
 .totp-header{font-size:7px}
 .totp-code{font-size:19px;letter-spacing:1px}
@@ -476,7 +469,7 @@ to{opacity:1;transform:translateY(0)}
 .token-options{flex-wrap:wrap}
 }
 
-@media(max-width:520px){.entries-grid{grid-template-columns:1fr}.entry-card{padding:20px 19px 0}.entry-card-top{gap:11px}.entry-card .service-icon{width:39px;height:39px;font-size:17px}.entry-title h3{font-size:13px}.entry-title small{font-size:10px}.entry-account{font-size:11px;margin-top:21px;gap:9px}.entry-account .icon-button{min-width:27px}.entry-password{font-size:14px;letter-spacing:2px;margin-bottom:16px}.entry-password>.icon-button{min-width:28px}.entry-password>.icon-button svg{width:15px;height:15px}.totp-block{padding:11px 13px;margin-bottom:17px}.totp-header{font-size:8px;margin-bottom:4px}.totp-code{font-size:24px;letter-spacing:2px}.totp-body{gap:7px}.totp-body .icon-button{min-width:27px}.totp-body .icon-button svg{width:15px;height:15px}.countdown,.countdown svg{width:29px;height:29px}.countdown>span{font-size:8px}.entry-card-footer{margin:0 -19px;padding:8px 16px;min-height:41px;font-size:10px}.entry-card-footer .tag-count{font-size:9px}.entry-card-footer>.icon-button{min-width:27px}.entry-card-footer>.icon-button svg{width:15px;height:15px}.list-view .entry-card{grid-template-columns:1fr 1fr;padding:15px}.list-view .service-icon{width:33px;height:33px}.list-view .entry-title h3{font-size:11px}.list-view .totp-code{font-size:18px;letter-spacing:1px}}
+@media(max-width:520px){.entries-grid{grid-template-columns:1fr}.entry-card{padding:20px 19px 0}.entry-card-top{gap:11px}.entry-card .service-icon{width:39px;height:39px;font-size:17px}.entry-title h3{font-size:13px}.entry-title small{font-size:10px}.entry-account{font-size:11px;margin-top:21px;gap:9px}.entry-account .icon-button{min-width:27px}.entry-password{font-size:14px;letter-spacing:2px;margin-bottom:16px}.totp-block{padding:11px 13px;margin-bottom:17px}.totp-header{font-size:8px;margin-bottom:4px}.totp-code{font-size:24px;letter-spacing:2px}.totp-body{gap:7px}.totp-body .icon-button{min-width:27px}.totp-body .icon-button svg{width:15px;height:15px}.countdown,.countdown svg{width:29px;height:29px}.countdown>span{font-size:8px}.entry-card-footer{margin:0 -19px;padding:8px 16px;min-height:41px;font-size:10px}.entry-card-footer .tag-count{font-size:9px}.entry-card-footer>.icon-button{min-width:27px}.entry-card-footer>.icon-button svg{width:15px;height:15px}.list-view .entry-card{grid-template-columns:1fr 1fr;padding:15px}.list-view .service-icon{width:33px;height:33px}.list-view .entry-title h3{font-size:11px}.list-view .totp-code{font-size:18px;letter-spacing:1px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
 
