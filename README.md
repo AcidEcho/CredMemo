@@ -60,7 +60,7 @@ npm run build
 2. 将这个 `CredMemo` 文件夹压缩为 `CredMemo-<版本>.zip`，版本号以 `dist/manifest.json` 中的 `version` 为准。
 3. 保留构建目录中的全部文件，包括 `LICENSE`、`NOTICE` 和 `licenses/` 中的第三方许可证。
 
-ZIP 解压后的目录应固定为 `CredMemo`，不带版本号，结构如下；其他构建文件也须一并保留：
+ZIP 解压后的目录应固定为 `CredMemo`，结构如下；其他构建文件也须一并保留：
 
 ```text
 CredMemo/
@@ -75,8 +75,6 @@ CredMemo/
 ```
 
 随后按上文“ZIP 安装”或“覆盖更新”操作。仅构建 ZIP 不需要签名私钥；当前 `npm run package` 会同时生成 ZIP 和 CRX，需要 Python 3 及匹配项目公钥的签名私钥，缺少私钥时会停止打包。
-
-上述构建流程已在 Linux、Node.js 24 下验证，Windows、macOS 尚未实测。
 
 ## 使用
 
