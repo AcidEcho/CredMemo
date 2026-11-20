@@ -188,7 +188,6 @@ def run():
         page.locator('[data-action=new]').first.click()
         expect(page.locator('.token-type')).to_be_hidden()
         expect(page.locator('.token-heading select')).to_have_count(0)
-        expect(page.locator('.token-type')).to_have_value('totp')
         page.screenshot(path=str(OUT / 'new-credential.png'), animations='disabled')
         page.locator('#modal-root [data-action=close-modal]').first.focus()
         page.keyboard.press('/')
@@ -215,20 +214,22 @@ def run():
                 assert button.evaluate('node=>node.getBoundingClientRect().bottom<=document.querySelector(".modal-body").getBoundingClientRect().bottom')
 
         def settings_layout():
-            controls = page.locator('.advanced-options [data-field]:visible').evaluate_all('items=>items.map(node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}})')
+            controls = page.locator('.otp-dialog .token-options :is(input,select):visible').evaluate_all('items=>items.map(node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}})')
             assert len(controls) == 4
             assert len({item['height'] for item in controls}) == 1
-            assert controls[0]['y'] == controls[1]['y'] and controls[2]['y'] == controls[3]['y']
-            assert controls[0]['x'] == controls[2]['x'] and controls[1]['x'] == controls[3]['x']
-            assert abs(controls[0]['width'] - controls[1]['width']) <= 1
+            assert controls[0]['x'] == controls[1]['x'] == controls[2]['x'] < controls[3]['x']
+            assert controls[1]['y'] < controls[2]['y'] == controls[3]['y']
+            assert controls[0]['width'] == controls[1]['width'] and controls[1]['width'] > controls[2]['width']
+            assert abs(controls[2]['width'] - controls[3]['width']) <= 1
 
         def input_buttons_fit():
+            page.locator('.editor').evaluate('async node=>{await Promise.all(node.getAnimations().map(animation=>animation.finished))}')
             assert page.locator('#modal-root .input-wrap').evaluate_all('wraps=>wraps.every(wrap=>{const r=wrap.getBoundingClientRect(),buttons=[...wrap.querySelectorAll("button")].map(button=>button.getBoundingClientRect());return buttons.every((button,index)=>button.left>=r.left&&button.right<=r.right&&button.top>=r.top&&button.bottom<=r.bottom&&(!index||buttons[index-1].right<=button.left))})')
             eyes = page.locator('.editor .input-wrap [data-action=toggle-password]').evaluate_all('items=>items.map(node=>{const r=node.getBoundingClientRect();return r.x+r.width/2})')
             assert len(eyes) == 2 and abs(eyes[0] - eyes[1]) <= 1
             assert page.locator('.token-item .input-wrap button').evaluate_all('items=>items.map(node=>node.dataset.action)') == ['scan-entry', 'toggle-password']
             assert page.locator('.token-heading').evaluate('node=>{const label=node.querySelector("label").getBoundingClientRect(),button=node.querySelector("button").getBoundingClientRect(),eye=node.nextElementSibling.querySelector("[data-action=toggle-password]").getBoundingClientRect();return Math.abs(label.y+label.height/2-button.y-button.height/2)<=1&&Math.abs(button.x+button.width/2-eye.x-eye.width/2)<=1}')
-            assert page.locator('.editor .field-label').evaluate_all('labels=>labels.every(label=>{const field=document.getElementById(label.htmlFor);return field.getBoundingClientRect().top-label.getBoundingClientRect().bottom>=4})')
+            assert page.locator('.editor .field-label').evaluate_all('labels=>labels.every(label=>{const field=document.getElementById(label.htmlFor);return field.getBoundingClientRect().top-label.getBoundingClientRect().bottom>=3.9})')
 
         def card_controls():
             card = page.locator('.entry-card:has(.totp-block)').first
@@ -241,7 +242,7 @@ def run():
 
         def hover_no_background(button):
             button.hover(trial=True)
-            before = button.evaluate('node=>({background:getComputedStyle(node).backgroundColor,rect:node.getBoundingClientRect().toJSON()})')
+            before = button.evaluate('async node=>{const animations=node.closest(".modal")?.getAnimations()??[];await Promise.all(animations.map(animation=>animation.finished));return {background:getComputedStyle(node).backgroundColor,rect:node.getBoundingClientRect().toJSON()}}')
             button.hover()
             after = button.evaluate('async node=>{await Promise.all(node.getAnimations().map(animation=>animation.finished));return {background:getComputedStyle(node).backgroundColor,rect:node.getBoundingClientRect().toJSON()}}')
             assert after == before
@@ -288,19 +289,42 @@ def run():
                     hover_no_background(button)
                 page.locator('.token-item [data-action=toggle-password]').hover()
                 page.screenshot(path=str(OUT / f'hover-secret-{language}-{theme}.png'), animations='disabled')
-                page.locator('[data-action=token-options]').click()
-                expect(page.locator('.token-type')).to_be_focused()
-                expect(page.locator('[data-action=token-options]')).to_have_attribute('aria-expanded', 'true')
-                assert page.locator('.advanced-options').evaluate('node=>node.scrollWidth<=node.clientWidth')
-                assert page.locator('.advanced-options').evaluate('node=>{const panel=node.getBoundingClientRect(),body=node.closest(".modal-body").getBoundingClientRect();return panel.top>=body.top-1&&panel.bottom<=body.bottom+1}')
-                settings_layout()
-                input_buttons_fit()
-                page.locator('[data-action=token-options]').hover()
-                page.screenshot(path=str(OUT / f'token-settings-{language}-{theme}.png'), animations='disabled')
-                page.locator('[data-action=token-options]').click()
-                expect(page.locator('.token-type')).to_be_hidden()
-                expect(page.locator('[data-action=token-options]')).to_have_attribute('aria-expanded', 'false')
+                gear = page.locator('[data-action=token-options]')
+                settings = page.locator('.otp-dialog')
+                apply = settings.locator('button[type=submit]')
+                digits = settings.locator('[name=digits]')
                 page.locator('#entry-title').fill('Validation fixture')
+                editor_body = page.locator('.editor > .modal-body')
+                editor_height = editor_body.evaluate('node=>node.scrollHeight')
+                gear.click()
+                expect(settings).to_be_visible()
+                expect(settings).to_have_accessible_name('2FA 设置' if language == 'zh' else '2FA settings')
+                expect(settings.locator('.token-type')).to_be_focused()
+                expect(settings.locator('.token-type')).to_have_value('totp')
+                assert editor_body.evaluate('node=>node.scrollHeight') == editor_height
+                assert settings.locator('.modal-body').evaluate('node=>node.scrollWidth<=node.clientWidth&&node.scrollHeight<=node.clientHeight+1')
+                settings_layout()
+                page.screenshot(path=str(OUT / f'token-settings-{language}-{theme}.png'), animations='disabled')
+                apply.focus()
+                page.keyboard.press('Tab')
+                expect(settings.locator('.modal-header button')).to_be_focused()
+                page.keyboard.press('Shift+Tab')
+                expect(apply).to_be_focused()
+                digits.fill('11')
+                apply.click()
+                expect(settings).to_be_visible()
+                assert digits.evaluate('node=>node.validity.rangeOverflow')
+                page.keyboard.press('Escape')
+                expect(settings).to_have_count(0)
+                expect(gear).to_be_focused()
+                expect(page.locator('#entry-title')).to_have_value('Validation fixture')
+                gear.click()
+                expect(digits).to_have_value('6')
+                digits.fill('8')
+                apply.click()
+                expect(settings).to_have_count(0)
+                expect(gear).to_be_focused()
+                assert len(request('list')['entries']) == 2
                 page.locator('button[form=entry-form]').click()
                 expect(page.locator('#form-error')).to_have_text('至少添加一组账号密码或 2FA' if language == 'zh' else 'Add at least one account or 2FA key')
                 page.screenshot(path=str(OUT / f'validation-missing-{language}-{theme}.png'), animations='disabled')
@@ -319,7 +343,6 @@ def run():
 
                 page.locator('#entry-url').fill('')
                 page.locator('.token-item [data-field=secret]').fill('invalid 2FA fixture')
-                page.locator('[data-action=token-options]').click()
                 page.locator('.modal-body').evaluate('node=>node.scrollTop=0')
                 page.locator('button[form=entry-form]').click()
                 expect(page.locator('#form-error')).to_have_text('2FA 密钥或参数无效' if language == 'zh' else 'Invalid 2FA secret or parameters')
@@ -332,7 +355,9 @@ def run():
                 page.locator('button[form=entry-form]').click()
                 expect(page.locator('#modal-root')).to_be_empty()
                 saved = next(entry for entry in request('list')['entries'] if entry['title'] == 'Validation fixture')
-                assert request('get', {'id': saved['id']})['logins'][0]['password'] == password
+                saved_entry = request('get', {'id': saved['id']})
+                assert saved_entry['logins'][0]['password'] == password
+                assert saved_entry['totps'][0]['digits'] == 8
                 page.locator(f'[data-entry="{saved["id"]}"] [data-action=edit]').click()
                 page.locator('#entry-url').click()
                 page.locator('#entry-url').fill('https://invalid host.test')

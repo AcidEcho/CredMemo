@@ -176,9 +176,93 @@ import { moveVisible } from './list-order.ts';
       <input type="hidden" data-field="label" value="${escape(item.label||'')}"></div>`;
   }
   function totpFields(item={},primary=false) {
-    const n=++itemSequence,type=item.type||'totp',event=counterBased(type);
-    return `<div class="form-item token-item${primary?' primary-item':''}">${primary?'':iconButton('close','remove-item','removeItem','','remove-item')}<div class="token-heading"><label class="field-label" for="token-secret-${n}">${escape(t('totpSecret'))}</label>${iconButton('settings','token-options','advanced',`aria-expanded="false" aria-controls="token-options-${n}"`)}</div><div class="input-wrap"><input id="token-secret-${n}" data-field="secret" type="password" value="${escape(item.secret||'')}" maxlength="4096" autocomplete="off" placeholder="${escape(t(type==='hex'||type==='hhex'?'hexSecretPlaceholder':'totpSecretPlaceholder'))}">${iconButton('scan','scan-entry','scanSelection')}${iconButton('eye','toggle-password','showPassword',`data-target="token-secret-${n}"`)}</div>
-      <input type="hidden" data-field="label" value="${escape(item.label||'')}"><div id="token-options-${n}" class="advanced-options" hidden><div class="token-options"><label for="token-type-${n}">${escape(t('otpType'))}<select id="token-type-${n}" class="select token-type" data-field="type">${OTP_TYPES.map(value=>`<option value="${value}" ${type===value?'selected':''}>${escape(t('otp_'+value))}</option>`).join('')}</select></label><label>${escape(t('algorithm'))}<select class="select" data-field="algorithm">${OTP_ALGORITHMS.map(value=>`<option value="${value}" ${value===(item.algorithm||'SHA1')?'selected':''}>${value.replace('GOST3411_2012_','GOST ')}</option>`).join('')}</select></label><label class="digits-option">${escape(t('digits'))}<input class="input" data-field="digits" type="number" required min="1" max="10" step="1" value="${item.digits??(type==='steam'?5:type==='battle'?8:6)}" ${['steam','battle'].includes(type)?'readonly':''}></label><label class="period-option" ${event?'hidden':''}>${escape(t('period'))}<input class="input" data-field="period" type="number" required ${event?'disabled':''} min="1" step="1" value="${item.period??30}"></label><label class="counter-option" ${event?'':'hidden'}>${escape(t('counter'))}<input class="input" data-field="counter" type="number" required ${event?'':'disabled'} min="0" max="9007199254740991" step="1" value="${item.counter??0}"></label></div></div></div>`;
+    const n = ++itemSequence;
+    const type = item.type || 'totp';
+    const options = {
+      label: item.label || '',
+      type,
+      algorithm: item.algorithm || 'SHA1',
+      digits: item.digits ?? (type === 'steam' ? 5 : type === 'battle' ? 8 : 6),
+      period: item.period ?? 30,
+      counter: item.counter ?? 0,
+    };
+    const values = Object.entries(options).map(([name, value]) =>
+      `<input type="hidden" data-field="${name}" value="${escape(value)}">`).join('');
+    return `<div class="form-item token-item${primary?' primary-item':''}">${primary?'':iconButton('close','remove-item','removeItem','','remove-item')}<div class="token-heading"><label class="field-label" for="token-secret-${n}">${escape(t('totpSecret'))}</label>${iconButton('settings','token-options','otpSettings','aria-haspopup="dialog"')}</div><div class="input-wrap"><input id="token-secret-${n}" data-field="secret" type="password" value="${escape(item.secret||'')}" maxlength="4096" autocomplete="off" placeholder="${escape(t(type==='hex'||type==='hhex'?'hexSecretPlaceholder':'totpSecretPlaceholder'))}">${iconButton('scan','scan-entry','scanSelection')}${iconButton('eye','toggle-password','showPassword',`data-target="token-secret-${n}"`)}</div>
+      ${values}</div>`;
+  }
+  function openTokenOptions(button) {
+    const row = button.closest('.token-item');
+    const fields = Object.fromEntries($$('input[type="hidden"][data-field]', row).map(input => [input.dataset.field, input]));
+    const dialog = document.createElement('dialog');
+    dialog.className = 'modal otp-dialog';
+    dialog.setAttribute('aria-labelledby', 'otp-dialog-title');
+    dialog.innerHTML = `
+      <header class="modal-header">
+        <h2 id="otp-dialog-title">${escape(t('otpSettings'))}</h2>
+        <button type="button" class="icon-button" aria-label="${escape(t('close'))}">${icon('close')}</button>
+      </header>
+      <form id="otp-options-form" class="modal-body token-options">
+        <label>${escape(t('otpType'))}
+          <select class="select token-type" name="type" autofocus>${OTP_TYPES.map(type =>
+            `<option value="${type}">${escape(t('otp_' + type))}</option>`).join('')}</select>
+        </label>
+        <label>${escape(t('algorithm'))}
+          <select class="select" name="algorithm">${OTP_ALGORITHMS.map(algorithm =>
+            `<option value="${algorithm}">${algorithm.replace('GOST3411_2012_', 'GOST ')}</option>`).join('')}</select>
+        </label>
+        <label>${escape(t('digits'))}
+          <input class="input" name="digits" type="number" required min="1" max="10" step="1">
+        </label>
+        <label class="period-option">${escape(t('period'))}
+          <input class="input" name="period" type="number" required min="1" max="9007199254740991" step="1">
+        </label>
+        <label class="counter-option">${escape(t('counter'))}
+          <input class="input" name="counter" type="number" required min="0" max="9007199254740991" step="1">
+        </label>
+      </form>
+      <footer class="modal-footer">
+        <button type="button" class="button secondary">${escape(t('cancel'))}</button>
+        <button type="submit" form="otp-options-form" class="button primary">${escape(t('applyOptions'))}</button>
+      </footer>`;
+
+    const form = $('form', dialog);
+    const {type, algorithm, digits, period, counter} = form.elements;
+    for (const input of [type, algorithm, digits, period, counter]) {
+      input.value = fields[input.name].value;
+    }
+    let customDigits = ['steam', 'battle'].includes(type.value) ? '6' : digits.value;
+    function updateFields() {
+      const eventBased = counterBased(type.value);
+      period.closest('label').hidden = period.disabled = eventBased;
+      counter.closest('label').hidden = counter.disabled = !eventBased;
+      if (!digits.readOnly) customDigits = digits.value;
+      digits.readOnly = ['steam', 'battle'].includes(type.value);
+      digits.value = type.value === 'steam' ? '5' : type.value === 'battle' ? '8' : customDigits;
+    }
+    // 固定位数的验证码类型切回普通类型时，恢复用户原来输入的位数。
+    digits.readOnly = ['steam', 'battle'].includes(type.value);
+    updateFields();
+    type.addEventListener('change', updateFields);
+    for (const cancel of $$('button[type="button"]', dialog)) {
+      cancel.addEventListener('click', () => dialog.close());
+    }
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      for (const input of [type, algorithm, digits, period, counter]) {
+        if (!input.disabled) fields[input.name].value = input.value;
+      }
+      $('[data-field="secret"]', row).placeholder = t(['hex', 'hhex'].includes(type.value)
+        ? 'hexSecretPlaceholder' : 'totpSecretPlaceholder');
+      dialog.close();
+    });
+    dialog.addEventListener('close', () => {
+      dialog.remove();
+      button.focus();
+    }, {once: true});
+    button.closest('.editor').append(dialog);
+    dialog.showModal();
   }
   async function editEntry(id,draft=null) {
     const entry=draft?{...draft.entry,version:draft.version}:id?await request('get',{id}):null;
@@ -259,7 +343,7 @@ import { moveVisible } from './list-order.ts';
     if(action==='set-theme'){theme=button.dataset.theme;localStorage.setItem('credmemo-theme',theme);applyTheme();toast(t(theme));return;}
     if(action==='search-toggle')return searchPanel($('#search-panel').hidden);
     if(action==='search-close')return searchPanel(false);
-    if(action==='token-options'){const panel=$('.advanced-options',button.closest('.token-item'));panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden){$('.token-type',panel).focus();panel.scrollIntoView({block:'nearest'});}return;}
+    if(action==='token-options')return openTokenOptions(button);
     if(action==='advance'){const token=state.codes[id]?.[Number(index)];if(!token)return;button.disabled=true;try{await request('advance',{id,index:Number(index),counter:token.counter,version:state.entries.find(entry=>entry.id===id)?.version});await loadEntries();toast(t('counterAdvanced'));}catch(error){await loadEntries();throw error;}finally{if(button.isConnected)button.disabled=false;}return;}
     if(action==='scan-page'||action==='scan-entry'){
       const form=action==='scan-entry'?$('#entry-form'):null;
@@ -328,7 +412,6 @@ import { moveVisible } from './list-order.ts';
   });
   document.addEventListener('change',async event=>{
     const input=event.target;
-    if(input.matches('.token-type')){const row=input.closest('.token-item'),type=input.value,event=counterBased(type),digits=$('[data-field="digits"]',row);$('.period-option',row).hidden=event;$('.counter-option',row).hidden=!event;$('[data-field=period]',row).disabled=event;$('[data-field=counter]',row).disabled=!event;digits.readOnly=['steam','battle'].includes(type);if(type==='steam')digits.value=5;else if(type==='battle')digits.value=8;else if(digits.value==='5')digits.value=6;$('[data-field="secret"]',row).placeholder=t(['hex','hhex'].includes(type)?'hexSecretPlaceholder':'totpSecretPlaceholder');return;}
     if(input.id==='import-file'){
       const file=input.files[0];transferFile=null;$('#transfer-error').hidden=true;$('#restore-password-field').hidden=true;$('#restore-password').required=false;$('#restore-password').value='';$('#import-submit').disabled=true;$('#file-name').textContent=t('selectFile');$('#file-name').title='';
       if(!file)return;
@@ -357,6 +440,8 @@ import { moveVisible } from './list-order.ts';
   $('#entries').addEventListener('dragend',()=>{draggedId=null;$$('.drag-over').forEach(node=>node.classList.remove('drag-over'));});
   ['pointerdown','keydown','touchstart'].forEach(name=>document.addEventListener(name,()=>state.lastActive=Date.now(),{passive:true}));
   document.addEventListener('keydown',event=>{
+    const tokenDialog = $('.otp-dialog[open]');
+    if (tokenDialog && event.key !== 'Tab') return;
     if(event.key==='ArrowRight'&&event.target.id==='toolbar-theme-button'){event.preventDefault();themeOptions(true,true);return;}
     if(['Escape','ArrowLeft'].includes(event.key)&&!$('#toolbar-theme-options').hidden&&event.target.closest('#toolbar-menu')){event.preventDefault();themeOptions(false,true);return;}
     if(event.target.closest('#toolbar-menu,#toolbar-more')&&['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
@@ -369,7 +454,7 @@ import { moveVisible } from './list-order.ts';
     if(event.key==='Escape'){if($('#modal-root').children.length)closeModal();else if($('#drawer-root').children.length)closeDrawer();else if(!$('#search-panel').hidden)searchPanel(false);}
     if(event.key==='/'&&state.unlocked&&!$('#modal-root').children.length&&!$('#drawer-root').children.length&&!['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName)){event.preventDefault();searchPanel(true);}
     if(event.key==='Tab'){
-      const root=$('#modal-root .modal')||$('#drawer-root .drawer');if(!root)return;
+      const root=tokenDialog||$('#modal-root .modal')||$('#drawer-root .drawer');if(!root)return;
       const focusable=$$('button:not(:disabled),input:not(:disabled),select,textarea,a[href],summary',root).filter(el=>el.offsetParent!==null);
       const first=focusable[0],last=focusable.at(-1);
       if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}

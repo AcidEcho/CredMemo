@@ -56,7 +56,7 @@ def run():
             expect(page.locator('.primary-item .remove-item')).to_have_count(0)
             expect(page.locator('.token-item [data-field=secret]')).to_have_attribute('placeholder', '输入 2FA 密钥')
             expect(page.locator('.token-item [data-action=scan-entry]')).to_be_visible()
-            expect(page.locator('.advanced-options')).to_be_hidden()
+            expect(page.locator('.otp-dialog')).to_have_count(0)
             assert page.locator('.modal-body').evaluate('node=>node.scrollHeight<=node.clientHeight')
             page.locator('#entry-title').fill(title)
 

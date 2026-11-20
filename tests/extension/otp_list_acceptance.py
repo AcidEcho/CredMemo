@@ -43,27 +43,29 @@ def run():
         expect(client.locator('#app-screen')).to_be_visible()
         for kind in ['totp', 'hotp', 'steam', 'battle', 'hex', 'hhex']:
             client.locator('.heading-actions [data-action=new]').click()
+            expect(client.locator('#entry-title')).to_be_focused()
             client.locator('#entry-title').fill(kind.upper() + ' fixture')
             if kind in ['totp', 'hotp']:
                 client.locator('#entry-url').fill('https://login.example.test')
             expect(client.locator('.token-type')).to_be_hidden()
             expect(client.locator('.token-heading select')).to_have_count(0)
-            if kind != 'totp':
-                client.locator('[data-action=token-options]').click()
-                client.locator('.token-type').select_option(kind)
-            client.locator('.token-item [data-field=secret]').fill(PUBLIC_HEX if kind in ['hex', 'hhex'] else PUBLIC_SECRET)
+            settings = client.locator('.otp-dialog')
+            client.locator('[data-action=token-options]').click()
+            client.locator('.token-type').select_option(kind)
             assert client.locator('.token-type option').count() == 6
-            if kind == 'totp':
-                assert client.locator('.advanced-options').is_hidden()
-                assert client.locator('.modal-body').evaluate('node=>node.scrollHeight<=node.clientHeight')
-                client.screenshot(path=str(screenshots / 'otp-editor-default.png'))
             if kind in ['hotp', 'hhex']:
                 expect(client.locator('.counter-option')).to_be_visible()
                 expect(client.locator('.period-option')).to_be_hidden()
             if kind == 'hex':
-                client.locator('[data-field=algorithm]').select_option('GOST3411_2012_512')
-                client.locator('[data-field=period]').fill('45')
-                client.locator('[data-field=digits]').fill('10')
+                settings.locator('[name=algorithm]').select_option('GOST3411_2012_512')
+                settings.locator('[name=period]').fill('45')
+                settings.locator('[name=digits]').fill('10')
+            settings.locator('button[type=submit]').click()
+            expect(settings).to_have_count(0)
+            client.locator('.token-item [data-field=secret]').fill(PUBLIC_HEX if kind in ['hex', 'hhex'] else PUBLIC_SECRET)
+            if kind == 'totp':
+                assert client.locator('.modal-body').evaluate('node=>node.scrollHeight<=node.clientHeight')
+                client.screenshot(path=str(screenshots / 'otp-editor-default.png'))
             client.locator('button[form=entry-form]').click()
             expect(client.locator('#entry-form')).to_have_count(0)
         entries = request('list')['entries']
@@ -82,15 +84,16 @@ def run():
             saved = request('get', {'id': entry_id})
             client.locator(f'[data-entry="{entry_id}"] [data-action=edit]').click()
             expect(client.locator('.token-type')).to_be_hidden()
-            expect(client.locator('.token-type')).to_have_value(kind)
             client.locator('[data-action=token-options]').click()
             expect(client.locator('.token-type')).to_have_value(kind)
-            client.locator('[data-action=token-options]').click()
+            client.locator('.token-type').select_option('totp' if kind != 'totp' else 'hotp')
+            settings.locator('.modal-footer button[type=button]').click()
+            expect(settings).to_have_count(0)
             client.locator('#entry-notes').fill('Preserve the selected verification code settings')
             client.locator('button[form=entry-form]').click()
             expect(client.locator('#entry-form')).to_have_count(0)
             assert request('get', {'id': entry_id})['totps'] == saved['totps']
-        print('PASS: settings collapse without resetting any of the six types, parameters or HOTP counters during editing', flush=True)
+        print('PASS: canceling the settings dialog preserves all six types, parameters and HOTP counters during editing', flush=True)
 
         for title, url, label in [('工作 Example', '', ''), ('Label match', '', 'Example:secondary'), ('Example wrong site', 'https://unrelated.test', '')]:
             request('save', {'entry': {'title': title, 'url': url, 'logins': [], 'totps': [{'secret': PUBLIC_SECRET, 'label': label}]}})
